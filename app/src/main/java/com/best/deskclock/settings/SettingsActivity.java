@@ -490,6 +490,7 @@ public final class SettingsActivity extends CollapsingToolbarBaseActivity {
             editor.remove(KEY_SW_FONT);
             editor.remove(KEY_DIGITAL_CLOCK_FONT);
             editor.remove(KEY_DIGITAL_WIDGET_FONT);
+            editor.remove(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT);
             editor.remove(KEY_SCREENSAVER_DIGITAL_CLOCK_FONT);
             editor.remove(KEY_SCREENSAVER_BACKGROUND_IMAGE);
             editor.commit();

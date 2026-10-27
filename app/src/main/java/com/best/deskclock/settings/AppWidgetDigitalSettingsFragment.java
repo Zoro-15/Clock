@@ -4,6 +4,7 @@ package com.best.deskclock.settings;
 
 import static android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID;
 import static android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID;
+import static com.best.deskclock.settings.PreferencesDefaultValues.DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT;
 import static com.best.deskclock.settings.PreferencesKeys.*;
 
 import android.app.Activity;
@@ -21,6 +22,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.HapticFeedbackConstantsCompat;
+import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
 
@@ -79,6 +81,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     ColorPickerPreference mCustomCityNoteColorPref;
     CustomSliderPreference mDigitalWidgetMaxClockFontSizePref;
     Preference mDigitalWidgetFontPref;
+    ListPreference mDigitalWidgetPreshippedFontPref;
 
     private final ActivityResultLauncher<Intent> fontPickerLauncher =
         registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
@@ -111,9 +114,12 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 // Copy the new font to the device's protected storage
                 Uri copiedUri = FileUtils.copyFileToDeviceProtectedStorage(appContext, sourceUri, safeTitle);
 
-                // Save the new path
+                // Save the new path and reset preshipped font
                 if (copiedUri != null) {
-                    prefs.edit().putString(KEY_DIGITAL_WIDGET_FONT, copiedUri.getPath()).apply();
+                    prefs.edit()
+                        .putString(KEY_DIGITAL_WIDGET_FONT, copiedUri.getPath())
+                        .putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT)
+                        .apply();
                 }
 
                 AppExecutors.getMainThread().post(() -> {
@@ -122,6 +128,11 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                         WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
                     } else {
                         CustomToast.show(appContext, style, font, R.string.font_message_error);
+                    }
+
+                    if (mDigitalWidgetPreshippedFontPref != null) {
+                        mDigitalWidgetPreshippedFontPref.setValue(DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
+                        mDigitalWidgetPreshippedFontPref.setSummary(mDigitalWidgetPreshippedFontPref.getEntry());
                     }
 
                     if (!isAdded() || mDigitalWidgetFontPref == null) {
@@ -184,11 +195,13 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         mDigitalWidgetMaxClockFontSizePref = findPreference(KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE);
         mDigitalWidgetFontPref = findPreference(KEY_DIGITAL_WIDGET_FONT);
         if (mDigitalWidgetFontPref != null) {
-            mDigitalWidgetFontPref.setTitle(getString(WidgetDAO.getDigitalWidgetFont(getPrefs()) == null
+            mDigitalWidgetFontPref.setTitle(getString(getPrefs().getString(KEY_DIGITAL_WIDGET_FONT, null) == null
                 ? R.string.custom_font_title
                 : R.string.custom_font_title_variant));
             mDigitalWidgetFontPref.setOnPreferenceClickListener(this);
         }
+
+        mDigitalWidgetPreshippedFontPref = findPreference(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT);
 
         setupPreferences();
 
@@ -210,7 +223,12 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         super.onResume();
 
         restoreCustomFileDialogIfNeeded(KEY_DIGITAL_WIDGET_FONT, mDigitalWidgetFontPref, fontPickerLauncher, () -> {
-            WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+            String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
+            if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+                WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+            } else {
+                WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+            }
             updateDigitalWidget();
             WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);
         });
@@ -223,6 +241,38 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     @Override
     public boolean onPreferenceChange(@NonNull Preference pref, @NonNull Object newValue) {
         switch (pref.getKey()) {
+            case KEY_DIGITAL_WIDGET_PRESHIPPED_FONT -> {
+                final ListPreference preference = (ListPreference) pref;
+                final int index = preference.findIndexOfValue((String) newValue);
+                preference.setSummary(preference.getEntries()[index]);
+
+                String selectedFont = (String) newValue;
+                SharedPreferences prefs = getPrefs();
+                Context appContext = requireContext().getApplicationContext();
+
+                // If a custom font file was previously set, clear it so preshipped font takes effect
+                String customFont = prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+                if (customFont != null) {
+                    FileUtils.clearFile(customFont);
+                    ThemeUtils.removeFontFromCache(customFont);
+                    prefs.edit().remove(KEY_DIGITAL_WIDGET_FONT).apply();
+                    if (mDigitalWidgetFontPref != null) {
+                        mDigitalWidgetFontPref.setTitle(getString(R.string.custom_font_title));
+                    }
+                }
+
+                prefs.edit().putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, selectedFont).apply();
+
+                if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(selectedFont)) {
+                    WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+                } else {
+                    WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                }
+
+                updateDigitalWidget();
+                WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
+            }
+
             case KEY_DIGITAL_WIDGET_DISPLAY_TEXT_UPPERCASE, KEY_DIGITAL_WIDGET_DISPLAY_TEXT_SHADOW,
                  KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED, KEY_DIGITAL_WIDGET_HIDE_AM_PM, KEY_DIGITAL_WIDGET_DISPLAY_TOP_DATE,
                  KEY_DIGITAL_WIDGET_ENABLE_CITY_FLAG, KEY_DIGITAL_WIDGET_APPLY_HORIZONTAL_PADDING ->
@@ -479,6 +529,11 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
             && !WidgetDAO.isDigitalWidgetDefaultCityNoteColor(getPrefs()));
         mCustomCityNoteColorPref.setOnPreferenceChangeListener(this);
 
+        if (mDigitalWidgetPreshippedFontPref != null) {
+            mDigitalWidgetPreshippedFontPref.setSummary(mDigitalWidgetPreshippedFontPref.getEntry());
+            mDigitalWidgetPreshippedFontPref.setOnPreferenceChangeListener(this);
+        }
+
         if (mShowCitiesOnDigitalWidgetPref.isVisible() && areWorldCitiesDisplayed) {
             mDigitalWidgetMaxClockFontSizePref.setEnabled(false);
             mDigitalWidgetMaxClockFontSizePref.setTitle(R.string.digital_widget_message_summary);
@@ -517,11 +572,16 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
             selectCustomFile(
                 mDigitalWidgetFontPref,
                 fontPickerLauncher,
-                WidgetDAO.getDigitalWidgetFont(getPrefs()),
+                getPrefs().getString(KEY_DIGITAL_WIDGET_FONT, null),
                 KEY_DIGITAL_WIDGET_FONT,
                 true,
                 () -> {
-                    WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+                    String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
+                    if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+                        WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+                    } else {
+                        WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+                    }
                     updateDigitalWidget();
                     WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);
                 }

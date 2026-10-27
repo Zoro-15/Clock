@@ -802,4 +802,32 @@
         <item>Asia/Kamchatka</item>
         <item>Asia/Damascus</item>
     </string-array>
+
+    <string-array name="preshipped_font_entries" translatable="false">
+        <item>@string/label_default</item>
+        <item>Google Sans Flex</item>
+        <item>Google Sans</item>
+        <item>Google Sans Display</item>
+        <item>Clean Pixel aesthetic</item>
+        <item>HarmonyOS Sans Super Bold</item>
+        <item>Xiaomi Neu Rounded</item>
+        <item>Creato Display Bold</item>
+        <item>Poppins</item>
+        <item>Nothing NType</item>
+        <item>Moto Milky Stacked</item>
+    </string-array>
+
+    <string-array name="preshipped_font_values" translatable="false">
+        <item>default</item>
+        <item>google_sans_flex.ttf</item>
+        <item>google_sans.ttf</item>
+        <item>google_sans_display.ttf</item>
+        <item>clean_pixel_aesthetic.ttf</item>
+        <item>harmonyos_sans_super_bold.ttf</item>
+        <item>xiaomi_neu_rounded.ttf</item>
+        <item>creato_display_bold.ttf</item>
+        <item>poppins.ttf</item>
+        <item>nothing_ntype.ttf</item>
+        <item>moto_milky_stacked.ttf</item>
+    </string-array>
 </resources>

@@ -279,6 +279,7 @@ public class PreferencesDefaultValues {
     public static final boolean DEFAULT_DIGITAL_WIDGET_DISPLAY_TOP_DATE = false;
     public static final boolean DEFAULT_DIGITAL_WIDGET_DISPLAY_NEXT_ALARM_TITLE = true;
     public static final boolean DEFAULT_DIGITAL_WIDGET_WORLD_CITIES_DISPLAYED = true;
+    public static final String DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT = "default";
 
     // Vertical Widget
     public static final boolean DEFAULT_VERTICAL_WIDGET_DISPLAY_DATE = true;

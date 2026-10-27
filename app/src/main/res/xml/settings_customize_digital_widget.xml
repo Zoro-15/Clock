@@ -51,6 +51,16 @@
             app:iconSpaceReserved="false"
             app:singleLineTitle="false" />
 
+        <ListPreference
+            android:key="key_digital_widget_preshipped_font"
+            android:layout="@layout/settings_preference_layout"
+            android:title="@string/preshipped_font_title"
+            android:entries="@array/preshipped_font_entries"
+            android:entryValues="@array/preshipped_font_values"
+            android:defaultValue="default"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
         <SwitchPreferenceCompat
             android:key="key_digital_widget_display_background"
             android:layout="@layout/settings_preference_layout"

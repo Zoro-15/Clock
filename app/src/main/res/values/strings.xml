@@ -639,6 +639,8 @@
     <string name="custom_font_title">Select a custom font</string>
     <!-- Setting title to choose or delete font. -->
     <string name="custom_font_title_variant">Change or delete the custom font</string>
+    <!-- Setting title to choose from preshipped fonts. -->
+    <string name="preshipped_font_title">Select from preshipped fonts</string>
     <!-- Dialog title to select a custom font. -->
     <string name="custom_font_dialog_title">Font</string>
     <!-- Dialog message to change the font. -->

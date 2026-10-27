@@ -391,7 +391,25 @@ public final class WidgetDAO {
      */
     @Nullable
     public static String getDigitalWidgetFont(@NonNull SharedPreferences prefs) {
-        return prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+        String customFont = prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+        if (customFont != null) {
+            return customFont;
+        }
+
+        String preshipped = prefs.getString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
+        if (preshipped != null && !DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+            return "fonts/preshipped/" + preshipped;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return the preshipped font identifier chosen for the digital widget.
+     */
+    @NonNull
+    public static String getDigitalWidgetPreshippedFont(@NonNull SharedPreferences prefs) {
+        return prefs.getString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
     }
 
     // *********************
