@@ -339,6 +339,7 @@ public class PreferencesKeys {
     public static final String KEY_DIGITAL_WIDGET_DEFAULT_CITY_NOTE_COLOR = "key_digital_widget_default_city_note_color";
     public static final String KEY_DIGITAL_WIDGET_CUSTOM_CITY_NOTE_COLOR = "key_digital_widget_custom_city_note_color";
     public static final String KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE = "key_digital_widget_maximum_clock_font_size";
+    public static final String KEY_DIGITAL_WIDGET_FONT_BOLDNESS = "key_digital_widget_font_boldness";
     public static final String KEY_DIGITAL_WIDGET_FONT = "key_digital_widget_font";
     public static final String KEY_DIGITAL_WIDGET_PRESHIPPED_FONT = "key_digital_widget_preshipped_font";
 

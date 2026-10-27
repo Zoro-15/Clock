@@ -17,6 +17,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
@@ -652,11 +653,12 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
         if (customTypeface != null) {
-            date.setTypeface(customTypeface);
-            topDate.setTypeface(customTypeface);
-            dateForCustomColor.setTypeface(customTypeface);
-            topDateForCustomColor.setTypeface(customTypeface);
+            applyCustomTypefaceAndBoldness(date, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(topDate, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(dateForCustomColor, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(topDateForCustomColor, customTypeface, boldness);
         }
 
         if (!WidgetDAO.isDateDisplayedOnDigitalWidget(prefs)) {
@@ -721,11 +723,12 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
         if (customTypeface != null) {
-            nextAlarm.setTypeface(customTypeface);
-            timeZone.setTypeface(customTypeface);
-            nextAlarmForCustomColor.setTypeface(customTypeface);
-            timeZoneForCustomColor.setTypeface(customTypeface);
+            applyCustomTypefaceAndBoldness(nextAlarm, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(timeZone, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(nextAlarmForCustomColor, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(timeZoneForCustomColor, customTypeface, boldness);
         }
 
         if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || TextUtils.isEmpty(nextAlarmTime)) {
@@ -789,9 +792,10 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
         if (customTypeface != null) {
-            nextAlarmTitleView.setTypeface(customTypeface);
-            nextAlarmTitleViewForCustomColor.setTypeface(customTypeface);
+            applyCustomTypefaceAndBoldness(nextAlarmTitleView, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(nextAlarmTitleViewForCustomColor, customTypeface, boldness);
         }
 
         if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || !WidgetDAO.isNextAlarmTitleDisplayedOnDigitalWidget(prefs)) {
@@ -842,18 +846,19 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
 
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             TextClock clock = sizer.findViewById(getClockViewId());
             if (customTypeface != null) {
-                clock.setTypeface(customTypeface);
+                applyCustomTypefaceAndBoldness(clock, customTypeface, boldness);
             }
             clock.setText(WidgetUtils.getLongestTimeString(clock, areSecondsDisplayed, isAmPmHidden));
             clock.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mWidgetFontSizePx);
         } else {
             final TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
             if (customTypeface != null) {
-                clockForCustomColor.setTypeface(customTypeface);
+                applyCustomTypefaceAndBoldness(clockForCustomColor, customTypeface, boldness);
             }
             clockForCustomColor.setText(WidgetUtils.getLongestTimeString(clockForCustomColor, areSecondsDisplayed, isAmPmHidden));
             clockForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mWidgetFontSizePx);
@@ -865,12 +870,21 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                                                @NonNull SharedPreferences prefs) {
 
         boolean isTopDateDisplayed = WidgetDAO.isTopDateDisplayedOnDigitalWidget(prefs);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
 
         if (WidgetDAO.isDigitalWidgetDefaultDateColor(prefs)) {
             final TextView date = sizer.findViewById(isTopDateDisplayed ? getTopDateViewId() : getDateViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(date, customTypeface, boldness);
+            }
             date.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         } else {
             final TextView dateForCustomColor = sizer.findViewById(isTopDateDisplayed ? getTopDateCustomViewId() : getDateCustomViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(dateForCustomColor, customTypeface, boldness);
+            }
             dateForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         }
     }
@@ -879,11 +893,19 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void configureNextAlarmForMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes,
                                                     @NonNull SharedPreferences prefs) {
 
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
         if (WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs)) {
             final TextView nextAlarm = sizer.findViewById(getNextAlarmViewId());
             final TextView timeZone = sizer.findViewById(getTimeZoneViewId());
             final TextView nextAlarmIcon = sizer.findViewById(getNextAlarmIconId());
 
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarm, customTypeface, boldness);
+                applyCustomTypefaceAndBoldness(timeZone, customTypeface, boldness);
+            }
             nextAlarm.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
             timeZone.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mTimeZoneFontSizePx);
             nextAlarmIcon.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
@@ -893,6 +915,10 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             final TextView timeZoneForCustomColor = sizer.findViewById(getTimeZoneCustomViewId());
             final TextView nextAlarmIconForCustomColor = sizer.findViewById(getNextAlarmIconCustomId());
 
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmForCustomColor, customTypeface, boldness);
+                applyCustomTypefaceAndBoldness(timeZoneForCustomColor, customTypeface, boldness);
+            }
             nextAlarmForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
             timeZoneForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mTimeZoneFontSizePx);
             nextAlarmIconForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
@@ -902,12 +928,18 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         if (WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs)) {
             final TextView labelIcon = sizer.findViewById(getLabelIconViewId());
             final TextView nextAlarmTitle = sizer.findViewById(getNextAlarmTitleViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmTitle, customTypeface, boldness);
+            }
             labelIcon.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
             labelIcon.setPadding(measuredSizes.mIconPaddingPx, 0, measuredSizes.mIconPaddingPx, 0);
             nextAlarmTitle.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         } else {
             final TextView labelIconForCustomColor = sizer.findViewById(getLabelIconCustomViewId());
             final TextView nextAlarmTitleForCustomColor = sizer.findViewById(getNextAlarmTitleCustomViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmTitleForCustomColor, customTypeface, boldness);
+            }
             labelIconForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
             labelIconForCustomColor.setPadding(measuredSizes.mIconPaddingPx, 0, measuredSizes.mIconPaddingPx, 0);
             nextAlarmTitleForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
@@ -918,18 +950,27 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void finalizeMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes, @NonNull SharedPreferences prefs) {
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
+        Typeface styledTypeface = customTypeface;
+        if (customTypeface != null && SdkUtils.isAtLeastAndroid9()) {
+            try {
+                styledTypeface = Typeface.create(customTypeface, Math.max(1, Math.min(1000, boldness)), false);
+            } catch (Exception ignored) {
+            }
+        }
 
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             TextClock clock = sizer.findViewById(getClockViewId());
             if (customTypeface != null) {
-                clock.setTypeface(customTypeface);
+                applyCustomTypefaceAndBoldness(clock, customTypeface, boldness);
                 boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
                 float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
                 boolean is24Hour = DataModel.getDataModel().is24HourFormat();
 
                 CharSequence format = is24Hour
                     ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
-                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, customTypeface, "sans-serif", Typeface.NORMAL, false);
+                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
                 CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
                 clock.setText(currentTime);
 
@@ -948,14 +989,14 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         } else {
             TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
             if (customTypeface != null) {
-                clockForCustomColor.setTypeface(customTypeface);
+                applyCustomTypefaceAndBoldness(clockForCustomColor, customTypeface, boldness);
                 boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
                 float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
                 boolean is24Hour = DataModel.getDataModel().is24HourFormat();
 
                 CharSequence format = is24Hour
                     ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
-                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, customTypeface, "sans-serif", Typeface.NORMAL, false);
+                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
                 CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
                 clockForCustomColor.setText(currentTime);
 
@@ -980,6 +1021,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                 ? (isDefaultDateColor ? getTopDateViewId() : getTopDateCustomViewId())
                 : (isDefaultDateColor ? getDateViewId() : getDateCustomViewId()));
             if (dateView != null && dateView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(dateView, customTypeface, boldness);
                 dateView.measure(
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1000,6 +1042,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             boolean isDefaultAlarmColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs);
             TextView nextAlarmView = sizer.findViewById(isDefaultAlarmColor ? getNextAlarmViewId() : getNextAlarmCustomViewId());
             if (nextAlarmView != null && nextAlarmView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(nextAlarmView, customTypeface, boldness);
                 nextAlarmView.measure(
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1012,6 +1055,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
             TextView timeZoneView = sizer.findViewById(isDefaultAlarmColor ? getTimeZoneViewId() : getTimeZoneCustomViewId());
             if (timeZoneView != null && timeZoneView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(timeZoneView, customTypeface, boldness);
                 timeZoneView.measure(
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                     View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1026,6 +1070,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                 boolean isDefaultTitleColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs);
                 TextView nextAlarmTitleView = sizer.findViewById(isDefaultTitleColor ? getNextAlarmTitleViewId() : getNextAlarmTitleCustomViewId());
                 if (nextAlarmTitleView != null && nextAlarmTitleView.getVisibility() == VISIBLE) {
+                    applyCustomTypefaceAndBoldness(nextAlarmTitleView, customTypeface, boldness);
                     nextAlarmTitleView.measure(
                         View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
                         View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
@@ -1063,12 +1108,40 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         }
     }
 
+    public static void applyCustomTypefaceAndBoldness(@NonNull TextView tv, @Nullable Typeface typeface, int boldness) {
+        if (typeface == null) {
+            return;
+        }
+        Typeface styled = typeface;
+        if (SdkUtils.isAtLeastAndroid9()) {
+            try {
+                styled = Typeface.create(typeface, Math.max(1, Math.min(1000, boldness)), false);
+            } catch (Exception ignored) {
+            }
+        }
+        tv.setTypeface(styled);
+        if (boldness >= 600) {
+            tv.getPaint().setFakeBoldText(true);
+        } else {
+            tv.getPaint().setFakeBoldText(false);
+        }
+        if (boldness > 400) {
+            float size = tv.getTextSize();
+            float extraStroke = ((boldness - 400) / 600f) * (size * 0.04f);
+            tv.getPaint().setStyle(Paint.Style.FILL_AND_STROKE);
+            tv.getPaint().setStrokeWidth(extraStroke);
+        } else {
+            tv.getPaint().setStyle(Paint.Style.FILL);
+            tv.getPaint().setStrokeWidth(0f);
+        }
+    }
+
     private static Bitmap renderClockBitmap(@NonNull Context context, @NonNull CharSequence timeText,
-                                             int fontSizePx, @NonNull Typeface typeface,
+                                             int fontSizePx, @NonNull Typeface typeface, int boldness,
                                              boolean isDefaultColor, int customColor, boolean shadow) {
         TextView tv = new TextView(context);
-        tv.setTypeface(typeface);
         tv.setTextSize(COMPLEX_UNIT_PX, fontSizePx);
+        applyCustomTypefaceAndBoldness(tv, typeface, boldness);
         tv.setIncludeFontPadding(false);
         tv.setMaxLines(1);
         int pad = (int) dpToPx(3, context.getResources().getDisplayMetrics());
@@ -1115,6 +1188,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             return;
         }
 
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
         boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
         float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
         boolean is24Hour = DataModel.getDataModel().is24HourFormat();
@@ -1122,9 +1196,17 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         int customColor = WidgetDAO.getDigitalWidgetCustomClockColor(prefs);
         boolean shadow = WidgetDAO.isTextShadowDisplayedOnDigitalWidget(prefs);
 
+        Typeface styledTypeface = customTypeface;
+        if (SdkUtils.isAtLeastAndroid9()) {
+            try {
+                styledTypeface = Typeface.create(customTypeface, Math.max(1, Math.min(1000, boldness)), false);
+            } catch (Exception ignored) {
+            }
+        }
+
         CharSequence format = is24Hour
             ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
-            : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, customTypeface, "sans-serif", Typeface.NORMAL, false);
+            : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
         CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
 
         for (int widgetId : widgetIds) {
@@ -1135,10 +1217,13 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                 continue;
             }
 
-            Bitmap clockBitmap = renderClockBitmap(appContext, currentTime, fontSizePx, customTypeface, isDefaultColor, customColor, shadow);
+            Bitmap clockBitmap = renderClockBitmap(appContext, currentTime, fontSizePx, customTypeface, boldness, isDefaultColor, customColor, shadow);
             if (clockBitmap != null) {
                 RemoteViews rv = new RemoteViews(appContext.getPackageName(),
                     shadow ? R.layout.appwidget_digital_with_shadow : R.layout.appwidget_digital);
+                rv.setViewVisibility(R.id.clock, View.GONE);
+                rv.setViewVisibility(R.id.clockForCustomColor, View.GONE);
+                rv.setViewVisibility(R.id.clockBitmap, View.VISIBLE);
                 rv.setImageViewBitmap(R.id.clockBitmap, clockBitmap);
                 wm.partiallyUpdateAppWidget(widgetId, rv);
             }
@@ -1214,9 +1299,8 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             updateClockOnly(context);
             if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
                 startTickerIfNeeded(context);
-            } else {
-                WidgetUtils.scheduleMinuteWidgetUpdate(context);
             }
+            WidgetUtils.scheduleMinuteWidgetUpdate(context);
         }
     }
 

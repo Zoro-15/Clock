@@ -80,6 +80,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     SwitchPreferenceCompat mDefaultCityNoteColorPref;
     ColorPickerPreference mCustomCityNoteColorPref;
     CustomSliderPreference mDigitalWidgetMaxClockFontSizePref;
+    CustomSliderPreference mDigitalWidgetFontBoldnessPref;
     Preference mDigitalWidgetFontPref;
     ListPreference mDigitalWidgetPreshippedFontPref;
 
@@ -194,6 +195,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         mDefaultCityNoteColorPref = findPreference(KEY_DIGITAL_WIDGET_DEFAULT_CITY_NOTE_COLOR);
         mCustomCityNoteColorPref = findPreference(KEY_DIGITAL_WIDGET_CUSTOM_CITY_NOTE_COLOR);
         mDigitalWidgetMaxClockFontSizePref = findPreference(KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE);
+        mDigitalWidgetFontBoldnessPref = findPreference(KEY_DIGITAL_WIDGET_FONT_BOLDNESS);
         mDigitalWidgetFontPref = findPreference(KEY_DIGITAL_WIDGET_FONT);
         if (mDigitalWidgetFontPref != null) {
             mDigitalWidgetFontPref.setTitle(getString(getPrefs().getString(KEY_DIGITAL_WIDGET_FONT, null) == null

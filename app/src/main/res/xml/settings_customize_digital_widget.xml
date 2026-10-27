@@ -296,6 +296,16 @@
             app:iconSpaceReserved="false"
             app:singleLineTitle="false" />
 
+        <com.best.deskclock.settings.custompreference.CustomSliderPreference
+            android:key="key_digital_widget_font_boldness"
+            android:layout="@layout/settings_preference_slider_layout"
+            android:title="@string/font_boldness_title"
+            android:summary="@string/label_default"
+            android:defaultValue="400"
+            android:max="1000"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
     </PreferenceCategory>
 
 </PreferenceScreen>

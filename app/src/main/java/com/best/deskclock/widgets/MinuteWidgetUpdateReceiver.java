@@ -36,6 +36,22 @@ public class MinuteWidgetUpdateReceiver extends BroadcastReceiver {
         if (hasCustomFont) {
             DigitalAppWidgetProvider.registerReceivers(appContext, new DigitalAppWidgetProvider());
             DigitalAppWidgetProvider.updateClockOnly(appContext);
+
+            // On the hour (:00) or midnight, refresh full widget to update date & next alarms
+            java.util.Calendar now = java.util.Calendar.getInstance();
+            if (now.get(java.util.Calendar.MINUTE) == 0) {
+                android.appwidget.AppWidgetManager wm = android.appwidget.AppWidgetManager.getInstance(appContext);
+                if (wm != null) {
+                    android.content.ComponentName provider = new android.content.ComponentName(appContext, DigitalAppWidgetProvider.class);
+                    int[] widgetIds = wm.getAppWidgetIds(provider);
+                    if (widgetIds != null) {
+                        for (int id : widgetIds) {
+                            new DigitalAppWidgetProvider().relayoutWidget(appContext, wm, id, wm.getAppWidgetOptions(id));
+                        }
+                    }
+                }
+            }
+
             DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
             WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
         } else {

@@ -387,6 +387,13 @@ public final class WidgetDAO {
     }
 
     /**
+     * @return the font boldness applied to the digital widget.
+     */
+    public static int getDigitalWidgetFontBoldness(@NonNull SharedPreferences prefs) {
+        return prefs.getInt(KEY_DIGITAL_WIDGET_FONT_BOLDNESS, DEFAULT_FONT_BOLDNESS_VALUE);
+    }
+
+    /**
      * @return the font used on the digital widget, or null if the default font is used.
      */
     @Nullable
