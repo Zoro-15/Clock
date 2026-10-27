@@ -51,6 +51,15 @@
             android:maxLines="1"
             android:visibility="gone" />
 
+        <ImageView
+            android:id="@+id/topDateBitmap"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:paddingHorizontal="3dp"
+            android:contentDescription="@null"
+            android:visibility="gone" />
+
         <!-- Spacer must be a RemoteView; can't use Space -->
         <FrameLayout
             android:id="@+id/clockSpacer"
@@ -124,6 +133,14 @@
                     android:maxLines="1"
                     tools:visibility="gone" />
 
+                <ImageView
+                    android:id="@+id/dateBitmap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="3dp"
+                    android:contentDescription="@null"
+                    android:visibility="gone" />
+
                 <!-- Do not use the App tint attribute, otherwise the icon will not
                 change color when the device mode (light or dark) changes. -->
                 <ImageView
@@ -169,6 +186,14 @@
                     android:maxLines="1"
                     tools:visibility="gone" />
 
+                <ImageView
+                    android:id="@+id/nextAlarmBitmap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="3dp"
+                    android:contentDescription="@null"
+                    android:visibility="gone" />
+
                 <TextView
                     android:id="@+id/timeZone"
                     android:layout_width="wrap_content"
@@ -194,6 +219,15 @@
                     android:includeFontPadding="false"
                     android:maxLines="1"
                     tools:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/timeZoneBitmap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingStart="@null"
+                    android:paddingEnd="3dp"
+                    android:contentDescription="@null"
+                    android:visibility="gone" />
 
             </LinearLayout>
 
@@ -251,6 +285,14 @@
                     android:maxLines="1"
                     android:maxEms="12"
                     tools:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/nextAlarmTitleBitmap"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:paddingHorizontal="3dp"
+                    android:contentDescription="@null"
+                    android:visibility="gone" />
 
             </LinearLayout>
 

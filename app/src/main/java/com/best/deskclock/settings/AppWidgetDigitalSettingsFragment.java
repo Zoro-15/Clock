@@ -126,6 +126,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                     if (copiedUri != null) {
                         CustomToast.show(appContext, style, font, R.string.custom_font_toast_message_selected);
                         WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                        DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                     } else {
                         CustomToast.show(appContext, style, font, R.string.font_message_error);
                     }
@@ -264,17 +265,30 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 prefs.edit().putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, selectedFont).apply();
 
                 if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(selectedFont)) {
+                    DigitalAppWidgetProvider.stopTicker();
                     WidgetUtils.cancelMinuteWidgetUpdate(appContext);
                 } else {
                     WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                    DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                 }
 
                 updateDigitalWidget();
                 WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
             }
 
+            case KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED -> {
+                Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
+                boolean areSecondsDisplayed = (boolean) newValue;
+                Context appContext = requireContext().getApplicationContext();
+                if (areSecondsDisplayed) {
+                    DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
+                } else {
+                    DigitalAppWidgetProvider.stopTicker();
+                }
+            }
+
             case KEY_DIGITAL_WIDGET_DISPLAY_TEXT_UPPERCASE, KEY_DIGITAL_WIDGET_DISPLAY_TEXT_SHADOW,
-                 KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED, KEY_DIGITAL_WIDGET_HIDE_AM_PM, KEY_DIGITAL_WIDGET_DISPLAY_TOP_DATE,
+                 KEY_DIGITAL_WIDGET_HIDE_AM_PM, KEY_DIGITAL_WIDGET_DISPLAY_TOP_DATE,
                  KEY_DIGITAL_WIDGET_ENABLE_CITY_FLAG, KEY_DIGITAL_WIDGET_APPLY_HORIZONTAL_PADDING ->
                 Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
 
@@ -578,9 +592,11 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 () -> {
                     String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
                     if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+                        DigitalAppWidgetProvider.stopTicker();
                         WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
                     } else {
                         WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+                        DigitalAppWidgetProvider.startTickerIfNeeded(requireContext());
                     }
                     updateDigitalWidget();
                     WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);

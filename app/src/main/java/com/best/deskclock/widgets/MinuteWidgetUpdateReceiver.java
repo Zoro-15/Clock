@@ -34,9 +34,12 @@ public class MinuteWidgetUpdateReceiver extends BroadcastReceiver {
         boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
 
         if (hasCustomFont) {
-            WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+            DigitalAppWidgetProvider.registerReceivers(appContext, new DigitalAppWidgetProvider());
+            DigitalAppWidgetProvider.updateClockOnly(appContext);
+            DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
             WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
         } else {
+            DigitalAppWidgetProvider.stopTicker();
             WidgetUtils.cancelMinuteWidgetUpdate(appContext);
         }
     }

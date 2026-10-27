@@ -27,6 +27,11 @@ public class DigitalWidgetSizes {
     public Bitmap mIconBitmap;
     public Bitmap mLabelBitmap;
     public Bitmap mClockBitmap;
+    public Bitmap mTopDateBitmap;
+    public Bitmap mDateBitmap;
+    public Bitmap mNextAlarmBitmap;
+    public Bitmap mTimeZoneBitmap;
+    public Bitmap mNextAlarmTitleBitmap;
 
     public int mMeasuredWidthPx;
     public int mMeasuredHeightPx;

@@ -144,6 +144,26 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         return 0;
     }
 
+    protected int getTopDateBitmapViewId() {
+        return 0;
+    }
+
+    protected int getDateBitmapViewId() {
+        return 0;
+    }
+
+    protected int getNextAlarmBitmapViewId() {
+        return 0;
+    }
+
+    protected int getTimeZoneBitmapViewId() {
+        return 0;
+    }
+
+    protected int getNextAlarmTitleBitmapViewId() {
+        return 0;
+    }
+
     protected abstract int getClockHoursCustomViewId();
 
     protected abstract int getClockMinutesCustomViewId();
@@ -332,6 +352,12 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             PendingIntent calendarPendingIntent = PendingIntent.getActivity(context, 1, calendarIntent, PendingIntent.FLAG_IMMUTABLE);
 
             bindDateClickAction(rv, prefs, calendarPendingIntent);
+            if (getTopDateBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getTopDateBitmapViewId(), calendarPendingIntent);
+            }
+            if (getDateBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getDateBitmapViewId(), calendarPendingIntent);
+            }
         }
 
         // Configure child views of the remote view.
@@ -368,6 +394,8 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             LOGGER.v(sizes.toString());
         }
 
+        onWidgetSizesOptimized(widgetId, sizes, prefs);
+
         // Apply the computed sizes to the remote views.
         configureBackground(rv, context, prefs, displayMetrics, targetWidthPx, targetHeightPx);
         configureSizes(rv, sizes);
@@ -375,6 +403,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         configureWorldCityList(rv, context, prefs, displayMetrics, wm, locale, widgetId, sizes, cities);
 
         return rv;
+    }
+
+    protected void onWidgetSizesOptimized(int widgetId, @NonNull DigitalWidgetSizes sizes, @NonNull SharedPreferences prefs) {
     }
 
     protected void configureSizes(@NonNull RemoteViews rv, @NonNull DigitalWidgetSizes sizes) {
@@ -401,6 +432,11 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
 
     protected void configureBitmaps(@NonNull RemoteViews rv, @NonNull DigitalWidgetSizes sizes) {
         safeSetImageBitmap(rv, getClockBitmapViewId(), sizes.mClockBitmap);
+        safeSetImageBitmap(rv, getTopDateBitmapViewId(), sizes.mTopDateBitmap);
+        safeSetImageBitmap(rv, getDateBitmapViewId(), sizes.mDateBitmap);
+        safeSetImageBitmap(rv, getNextAlarmBitmapViewId(), sizes.mNextAlarmBitmap);
+        safeSetImageBitmap(rv, getTimeZoneBitmapViewId(), sizes.mTimeZoneBitmap);
+        safeSetImageBitmap(rv, getNextAlarmTitleBitmapViewId(), sizes.mNextAlarmTitleBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconCustomId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getLabelIconViewId(), sizes.mLabelBitmap);
@@ -903,6 +939,16 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
                     for (int widgetId : widgetIds) {
                         relayoutWidget(context, wm, widgetId, wm.getAppWidgetOptions(widgetId));
                     }
+                    break;
+                case Intent.ACTION_SCREEN_ON:
+                    onScreenOn(context);
+                    break;
+                case Intent.ACTION_SCREEN_OFF:
+                    onScreenOff(context);
+                    break;
+                case Intent.ACTION_TIME_TICK:
+                    onTimeTick(context);
+                    break;
             }
         }
 
@@ -942,11 +988,16 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
     }
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
-    private static void registerReceivers(@NonNull Context context, @NonNull BroadcastReceiver receiver) {
+    public static void registerReceivers(@NonNull Context context, @NonNull BroadcastReceiver receiver) {
         if (sReceiversRegistered) return;
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_CONFIGURATION_CHANGED);
         intentFilter.addAction(ACTION_ON_DAY_CHANGE);
+        intentFilter.addAction(Intent.ACTION_TIME_TICK);
+        intentFilter.addAction(Intent.ACTION_SCREEN_ON);
+        intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
+        intentFilter.addAction(Intent.ACTION_TIME_CHANGED);
+        intentFilter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
 
         if (SdkUtils.isAtLeastAndroid13()) {
             context.getApplicationContext().registerReceiver(receiver, intentFilter, Context.RECEIVER_NOT_EXPORTED);
@@ -954,6 +1005,15 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             context.getApplicationContext().registerReceiver(receiver, intentFilter);
         }
         sReceiversRegistered = true;
+    }
+
+    protected void onScreenOn(@NonNull Context context) {
+    }
+
+    protected void onScreenOff(@NonNull Context context) {
+    }
+
+    protected void onTimeTick(@NonNull Context context) {
     }
 
     /**

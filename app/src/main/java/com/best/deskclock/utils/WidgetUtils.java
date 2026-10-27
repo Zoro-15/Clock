@@ -488,8 +488,24 @@ public class WidgetUtils {
 
         AlarmManager am = getAlarmManager(context);
         if (am != null) {
-            am.setExact(AlarmManager.RTC, nextMinute.getTimeInMillis(), pendingIntent);
-            LogUtils.i("Minute widget update scheduled for: " + nextMinute.getTime());
+            long triggerAtMillis = nextMinute.getTimeInMillis();
+            boolean canScheduleExact = true;
+            if (SdkUtils.isAtLeastAndroid12()) {
+                canScheduleExact = am.canScheduleExactAlarms();
+            }
+
+            if (canScheduleExact) {
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+                    LogUtils.i("Minute widget update scheduled exact for: " + nextMinute.getTime());
+                    return;
+                } catch (SecurityException se) {
+                    LogUtils.w("Cannot schedule exact alarm: " + se.getMessage());
+                }
+            }
+
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+            LogUtils.i("Minute widget update scheduled inexact for: " + nextMinute.getTime());
         }
     }
 
