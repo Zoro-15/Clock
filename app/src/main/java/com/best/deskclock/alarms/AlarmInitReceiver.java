@@ -28,10 +28,13 @@ import com.best.deskclock.base.KeepAliveService;
 import com.best.deskclock.controller.Controller;
 import com.best.deskclock.data.DataModel;
 import com.best.deskclock.data.SettingsDAO;
+import com.best.deskclock.data.WidgetDAO;
 import com.best.deskclock.provider.AlarmInstance;
 import com.best.deskclock.utils.LogUtils;
 import com.best.deskclock.utils.NotificationUtils;
 import com.best.deskclock.utils.SdkUtils;
+import com.best.deskclock.utils.WidgetUtils;
+import com.best.deskclock.widgets.DigitalAppWidgetProvider;
 
 import java.util.Calendar;
 import java.util.List;
@@ -96,6 +99,13 @@ public class AlarmInitReceiver extends BroadcastReceiver {
             // Stopwatch and timer data need to be updated on time change so the reboot
             // functionality works as expected.
             dataModel.updateAfterTimeSet();
+        }
+
+        if (ACTION_BOOT_COMPLETED.equals(action) || ACTION_TIME_CHANGED.equals(action)) {
+            if (WidgetDAO.getDigitalWidgetFont(prefs) != null) {
+                WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+                WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+            }
         }
 
         // Update shortcuts so they exist for the user.

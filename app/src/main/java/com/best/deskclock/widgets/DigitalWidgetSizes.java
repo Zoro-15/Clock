@@ -26,6 +26,7 @@ public class DigitalWidgetSizes {
     private final int mSmallestFontSizePx;
     public Bitmap mIconBitmap;
     public Bitmap mLabelBitmap;
+    public Bitmap mClockBitmap;
 
     public int mMeasuredWidthPx;
     public int mMeasuredHeightPx;

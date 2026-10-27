@@ -4,7 +4,8 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <PreferenceCategory
         android:title="@string/style_category_title"
@@ -40,6 +41,13 @@
             android:layout="@layout/settings_preference_layout"
             android:title="@string/hide_clock_am_pm_pref"
             android:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
+        <Preference
+            android:key="key_digital_widget_font"
+            android:layout="@layout/settings_preference_layout"
+            android:title="@string/custom_font_title"
             app:iconSpaceReserved="false"
             app:singleLineTitle="false" />
 

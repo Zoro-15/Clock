@@ -343,6 +343,13 @@
             android:directBootAware="true">
         </receiver>
 
+        <!-- Receiver for handling the minute update of the digital app widget
+             when a custom font is used -->
+        <receiver
+            android:name="com.best.deskclock.widgets.MinuteWidgetUpdateReceiver"
+            android:directBootAware="true">
+        </receiver>
+
         <!-- ============================================================== -->
         <!-- App widget components.                                         -->
         <!-- ============================================================== -->

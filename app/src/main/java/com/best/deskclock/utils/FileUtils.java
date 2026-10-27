@@ -263,6 +263,8 @@ public class FileUtils {
             return KEY_SCREENSAVER_BACKGROUND_IMAGE;
         } else if (fileName.startsWith(FILE_DIGITAL_CLOCK_FONT)) {
             return KEY_DIGITAL_CLOCK_FONT;
+        } else if (fileName.startsWith(FILE_DIGITAL_WIDGET_FONT)) {
+            return KEY_DIGITAL_WIDGET_FONT;
         }
 
         return null;

@@ -48,6 +48,7 @@ import com.best.deskclock.events.Events;
 import com.best.deskclock.provider.AlarmInstance;
 import com.best.deskclock.widgets.AnalogAppWidgetProvider;
 import com.best.deskclock.widgets.DigitalAppWidgetProvider;
+import com.best.deskclock.widgets.MinuteWidgetUpdateReceiver;
 import com.best.deskclock.widgets.NextAlarmAppWidgetProvider;
 import com.best.deskclock.widgets.VerticalAppWidgetProvider;
 
@@ -470,6 +471,44 @@ public class WidgetUtils {
         }
 
         LogUtils.i("Alarm cancelled for widget receiver: " + receiverClass.getSimpleName());
+    }
+
+    /**
+     * Schedules a minute alarm to update widgets at the top of the next minute (:00).
+     */
+    public static void scheduleMinuteWidgetUpdate(@NonNull Context context) {
+        Calendar nextMinute = Calendar.getInstance();
+        nextMinute.add(Calendar.MINUTE, 1);
+        nextMinute.set(Calendar.SECOND, 0);
+        nextMinute.set(Calendar.MILLISECOND, 0);
+
+        Intent intent = new Intent(context, MinuteWidgetUpdateReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = getAlarmManager(context);
+        if (am != null) {
+            am.setExact(AlarmManager.RTC, nextMinute.getTimeInMillis(), pendingIntent);
+            LogUtils.i("Minute widget update scheduled for: " + nextMinute.getTime());
+        }
+    }
+
+    /**
+     * Cancels the scheduled minute widget update.
+     */
+    public static void cancelMinuteWidgetUpdate(@NonNull Context context) {
+        Intent intent = new Intent(context, MinuteWidgetUpdateReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+
+        if (pendingIntent != null) {
+            AlarmManager am = getAlarmManager(context);
+            if (am != null) {
+                am.cancel(pendingIntent);
+            }
+            pendingIntent.cancel();
+            LogUtils.i("Minute widget update cancelled");
+        }
     }
 
     /**

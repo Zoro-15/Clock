@@ -140,6 +140,10 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
 
     protected abstract int getClockCustomViewId();
 
+    protected int getClockBitmapViewId() {
+        return 0;
+    }
+
     protected abstract int getClockHoursCustomViewId();
 
     protected abstract int getClockMinutesCustomViewId();
@@ -316,6 +320,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             PendingIntent clockPendingIntent = PendingIntent.getActivity(context, 0, clockIntent, PendingIntent.FLAG_IMMUTABLE);
 
             rv.setOnClickPendingIntent(getWidgetViewId(), clockPendingIntent);
+            if (getClockBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getClockBitmapViewId(), clockPendingIntent);
+            }
 
             Uri calendarUri = CalendarContract.CONTENT_URI.buildUpon().appendPath("time").build();
             Intent calendarIntent = new Intent(Intent.ACTION_VIEW);
@@ -393,6 +400,7 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
     }
 
     protected void configureBitmaps(@NonNull RemoteViews rv, @NonNull DigitalWidgetSizes sizes) {
+        safeSetImageBitmap(rv, getClockBitmapViewId(), sizes.mClockBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconCustomId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getLabelIconViewId(), sizes.mLabelBitmap);

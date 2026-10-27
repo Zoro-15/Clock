@@ -113,6 +113,7 @@ public class BackupAndRestoreManager {
                     || key.equals(KEY_TIMER_BACKGROUND_IMAGE)
                     || key.equals(KEY_SW_FONT)
                     || key.equals(KEY_DIGITAL_CLOCK_FONT)
+                    || key.equals(KEY_DIGITAL_WIDGET_FONT)
                     || key.equals(KEY_SCREENSAVER_DIGITAL_CLOCK_FONT)
                     || key.equals(KEY_SCREENSAVER_BACKGROUND_IMAGE)
                     || key.equals(KEY_ESSENTIAL_PERMISSIONS_GRANTED)) {
@@ -318,6 +319,7 @@ public class BackupAndRestoreManager {
                 && !key.equals(KEY_TIMER_BACKGROUND_IMAGE)
                 && !key.equals(KEY_SW_FONT)
                 && !key.equals(KEY_DIGITAL_CLOCK_FONT)
+                && !key.equals(KEY_DIGITAL_WIDGET_FONT)
                 && !key.equals(KEY_SCREENSAVER_DIGITAL_CLOCK_FONT)
                 && !key.equals(KEY_SCREENSAVER_BACKGROUND_IMAGE)
                 && !key.equals(KEY_ESSENTIAL_PERMISSIONS_GRANTED)
