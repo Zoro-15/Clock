@@ -72,6 +72,7 @@ import com.best.deskclock.worldclock.CitySelectionActivity;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -91,7 +92,7 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
 
     private static final LogUtils.Logger LOGGER = new LogUtils.Logger("BaseDgtlWdgtProv");
 
-    private static boolean sReceiversRegistered;
+    private static final Set<Class<?>> sRegisteredReceiverClasses = new HashSet<>();
 
     /**
      * Intent action used for refreshing a world city display when any of them changes days or when
@@ -949,6 +950,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
                 case Intent.ACTION_TIME_TICK:
                     onTimeTick(context);
                     break;
+                case Intent.ACTION_USER_PRESENT:
+                    onUserPresent(context);
+                    break;
             }
         }
 
@@ -989,7 +993,7 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
 
     @SuppressLint("UnspecifiedRegisterReceiverFlag")
     public static void registerReceivers(@NonNull Context context, @NonNull BroadcastReceiver receiver) {
-        if (sReceiversRegistered) return;
+        if (sRegisteredReceiverClasses.contains(receiver.getClass())) return;
         IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(ACTION_CONFIGURATION_CHANGED);
         intentFilter.addAction(ACTION_ON_DAY_CHANGE);
@@ -998,13 +1002,14 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         intentFilter.addAction(Intent.ACTION_SCREEN_OFF);
         intentFilter.addAction(Intent.ACTION_TIME_CHANGED);
         intentFilter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        intentFilter.addAction(Intent.ACTION_USER_PRESENT);
 
         if (SdkUtils.isAtLeastAndroid13()) {
             context.getApplicationContext().registerReceiver(receiver, intentFilter, Context.RECEIVER_NOT_EXPORTED);
         } else {
             context.getApplicationContext().registerReceiver(receiver, intentFilter);
         }
-        sReceiversRegistered = true;
+        sRegisteredReceiverClasses.add(receiver.getClass());
     }
 
     protected void onScreenOn(@NonNull Context context) {
@@ -1014,6 +1019,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
     }
 
     protected void onTimeTick(@NonNull Context context) {
+    }
+
+    protected void onUserPresent(@NonNull Context context) {
     }
 
     /**

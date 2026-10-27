@@ -477,10 +477,18 @@ public class WidgetUtils {
      * Schedules a minute alarm to update widgets at the top of the next minute (:00).
      */
     public static void scheduleMinuteWidgetUpdate(@NonNull Context context) {
+        long now = System.currentTimeMillis();
         Calendar nextMinute = Calendar.getInstance();
+        nextMinute.setTimeInMillis(now);
         nextMinute.add(Calendar.MINUTE, 1);
         nextMinute.set(Calendar.SECOND, 0);
         nextMinute.set(Calendar.MILLISECOND, 0);
+
+        long triggerAtMillis = nextMinute.getTimeInMillis();
+        if (triggerAtMillis <= now) {
+            nextMinute.add(Calendar.MINUTE, 1);
+            triggerAtMillis = nextMinute.getTimeInMillis();
+        }
 
         Intent intent = new Intent(context, MinuteWidgetUpdateReceiver.class);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
@@ -488,7 +496,6 @@ public class WidgetUtils {
 
         AlarmManager am = getAlarmManager(context);
         if (am != null) {
-            long triggerAtMillis = nextMinute.getTimeInMillis();
             boolean canScheduleExact = true;
             if (SdkUtils.isAtLeastAndroid12()) {
                 canScheduleExact = am.canScheduleExactAlarms();

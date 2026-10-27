@@ -2,9 +2,11 @@
 
 package com.best.deskclock.widgets;
 
-import static androidx.preference.PreferenceManager.getDefaultSharedPreferences;
+import static com.best.deskclock.DeskClockApplication.getDefaultSharedPreferences;
 
+import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -15,6 +17,8 @@ import com.best.deskclock.data.WidgetDAO;
 import com.best.deskclock.utils.LogUtils;
 import com.best.deskclock.utils.ThemeUtils;
 import com.best.deskclock.utils.WidgetUtils;
+
+import java.util.Calendar;
 
 /**
  * BroadcastReceiver responsible for updating the digital clock widget every minute
@@ -34,15 +38,15 @@ public class MinuteWidgetUpdateReceiver extends BroadcastReceiver {
         boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
 
         if (hasCustomFont) {
-            DigitalAppWidgetProvider.registerReceivers(appContext, new DigitalAppWidgetProvider());
+            DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
             DigitalAppWidgetProvider.updateClockOnly(appContext);
 
             // On the hour (:00) or midnight, refresh full widget to update date & next alarms
-            java.util.Calendar now = java.util.Calendar.getInstance();
-            if (now.get(java.util.Calendar.MINUTE) == 0) {
-                android.appwidget.AppWidgetManager wm = android.appwidget.AppWidgetManager.getInstance(appContext);
+            Calendar now = Calendar.getInstance();
+            if (now.get(Calendar.MINUTE) == 0) {
+                AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
                 if (wm != null) {
-                    android.content.ComponentName provider = new android.content.ComponentName(appContext, DigitalAppWidgetProvider.class);
+                    ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
                     int[] widgetIds = wm.getAppWidgetIds(provider);
                     if (widgetIds != null) {
                         for (int id : widgetIds) {
@@ -56,6 +60,7 @@ public class MinuteWidgetUpdateReceiver extends BroadcastReceiver {
             WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
         } else {
             DigitalAppWidgetProvider.stopTicker();
+            DigitalAppWidgetProvider.unregisterDynamicReceiver(appContext);
             WidgetUtils.cancelMinuteWidgetUpdate(appContext);
         }
     }

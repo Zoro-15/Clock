@@ -347,6 +347,7 @@
              when a custom font is used -->
         <receiver
             android:name="com.best.deskclock.widgets.MinuteWidgetUpdateReceiver"
+            android:exported="false"
             android:directBootAware="true">
         </receiver>
 
@@ -391,6 +392,7 @@
                 <action android:name="android.intent.action.APPLICATION_LOCALE_CHANGED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
                 <action android:name="com.best.deskclock.ON_DAY_CHANGE" />
             </intent-filter>
             <meta-data

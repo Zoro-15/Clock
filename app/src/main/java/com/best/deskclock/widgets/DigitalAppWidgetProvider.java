@@ -10,10 +10,14 @@ import static com.best.deskclock.DeskClockApplication.getDefaultSharedPreference
 import static com.best.deskclock.settings.PreferencesDefaultValues.DEFAULT_WIDGET_BACKGROUND_CORNER_RADIUS;
 import static com.best.deskclock.utils.WidgetUtils.METHOD_SET_IMAGE_ICON;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.Color;
@@ -1171,10 +1175,16 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         SharedPreferences prefs = getDefaultSharedPreferences(appContext);
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         if (fontPath == null) {
+            stopTicker();
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
             return;
         }
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
         if (customTypeface == null) {
+            stopTicker();
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
             return;
         }
 
@@ -1230,7 +1240,97 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         }
     }
 
-    public static void startTickerIfNeeded(@NonNull Context context) {
+    private static BroadcastReceiver sDynamicReceiver = null;
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    public static synchronized void registerDynamicReceiver(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        if (sDynamicReceiver != null) {
+            return;
+        }
+
+        sDynamicReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                if (intent == null || intent.getAction() == null) return;
+                String action = intent.getAction();
+                switch (action) {
+                    case Intent.ACTION_SCREEN_ON:
+                    case Intent.ACTION_USER_PRESENT:
+                        onScreenWakeOrUnlock(ctx);
+                        break;
+                    case Intent.ACTION_SCREEN_OFF:
+                        stopTicker();
+                        break;
+                    case Intent.ACTION_TIME_TICK:
+                        onTimeTickInternal(ctx);
+                        break;
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
+        filter.addAction(Intent.ACTION_TIME_TICK);
+
+        if (SdkUtils.isAtLeastAndroid13()) {
+            appContext.registerReceiver(sDynamicReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            appContext.registerReceiver(sDynamicReceiver, filter);
+        }
+    }
+
+    public static synchronized void unregisterDynamicReceiver(@NonNull Context context) {
+        if (sDynamicReceiver != null) {
+            try {
+                context.getApplicationContext().unregisterReceiver(sDynamicReceiver);
+            } catch (Exception ignored) {
+            }
+            sDynamicReceiver = null;
+        }
+    }
+
+    public static void onScreenWakeOrUnlock(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        if (hasCustomFont) {
+            registerDynamicReceiver(appContext);
+            updateClockOnly(appContext);
+            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
+                startTickerIfNeeded(appContext);
+            }
+            WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+        } else {
+            stopTicker();
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+        }
+    }
+
+    private static void onTimeTickInternal(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        if (hasCustomFont) {
+            updateClockOnly(context);
+            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
+                startTickerIfNeeded(context);
+            }
+            WidgetUtils.scheduleMinuteWidgetUpdate(context);
+        } else {
+            stopTicker();
+            unregisterDynamicReceiver(context);
+            WidgetUtils.cancelMinuteWidgetUpdate(context);
+        }
+    }
+
+    public static synchronized void startTickerIfNeeded(@NonNull Context context) {
         Context appContext = context.getApplicationContext();
         SharedPreferences prefs = getDefaultSharedPreferences(appContext);
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
@@ -1248,7 +1348,9 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             return;
         }
 
-        stopTicker();
+        if (sTickerRunning) {
+            return;
+        }
 
         sTickerRunning = true;
         sTickerRunnable = new Runnable() {
@@ -1278,7 +1380,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         sHandler.postDelayed(sTickerRunnable, delay);
     }
 
-    public static void stopTicker() {
+    public static synchronized void stopTicker() {
         sTickerRunning = false;
         if (sTickerRunnable != null) {
             sHandler.removeCallbacks(sTickerRunnable);
@@ -1289,17 +1391,13 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     @Override
     protected void onScreenOn(@NonNull Context context) {
         super.onScreenOn(context);
-        SharedPreferences prefs = getDefaultSharedPreferences(context);
-        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        onScreenWakeOrUnlock(context);
+    }
 
-        if (hasCustomFont) {
-            updateClockOnly(context);
-            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
-                startTickerIfNeeded(context);
-            }
-            WidgetUtils.scheduleMinuteWidgetUpdate(context);
-        }
+    @Override
+    protected void onUserPresent(@NonNull Context context) {
+        super.onUserPresent(context);
+        onScreenWakeOrUnlock(context);
     }
 
     @Override
@@ -1316,35 +1414,42 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     @Override
     protected void onTimeTick(@NonNull Context context) {
         super.onTimeTick(context);
-        SharedPreferences prefs = getDefaultSharedPreferences(context);
-        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
-        if (hasCustomFont) {
-            updateClockOnly(context);
-            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
-                startTickerIfNeeded(context);
-            }
-            WidgetUtils.scheduleMinuteWidgetUpdate(context);
-        }
+        onTimeTickInternal(context);
     }
 
     @Override
     public void onUpdate(@NonNull Context context, @NonNull AppWidgetManager wm, int[] widgetIds) {
         super.onUpdate(context, wm, widgetIds);
-        startTickerIfNeeded(context);
+        SharedPreferences prefs = getDefaultSharedPreferences(context);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        if (hasCustomFont) {
+            registerDynamicReceiver(context);
+            startTickerIfNeeded(context);
+            WidgetUtils.scheduleMinuteWidgetUpdate(context);
+        } else {
+            stopTicker();
+            unregisterDynamicReceiver(context);
+            WidgetUtils.cancelMinuteWidgetUpdate(context);
+        }
     }
 
     @Override
     protected void relayoutWidget(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId, @NonNull Bundle options) {
         super.relayoutWidget(context, wm, widgetId, options);
 
-        registerReceivers(context, this);
-        startTickerIfNeeded(context);
-
         SharedPreferences prefs = getDefaultSharedPreferences(context);
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        if (fontPath != null && ThemeUtils.loadFont(fontPath) != null) {
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        if (hasCustomFont) {
+            registerDynamicReceiver(context);
+            startTickerIfNeeded(context);
             WidgetUtils.scheduleMinuteWidgetUpdate(context.getApplicationContext());
+        } else {
+            stopTicker();
+            unregisterDynamicReceiver(context);
+            WidgetUtils.cancelMinuteWidgetUpdate(context.getApplicationContext());
         }
     }
 
@@ -1352,13 +1457,18 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     public void onEnabled(@NonNull Context context) {
         super.onEnabled(context);
 
-        registerReceivers(context, this);
-        startTickerIfNeeded(context);
-
         SharedPreferences prefs = getDefaultSharedPreferences(context);
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        if (fontPath != null && ThemeUtils.loadFont(fontPath) != null) {
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        if (hasCustomFont) {
+            registerDynamicReceiver(context);
+            startTickerIfNeeded(context);
             WidgetUtils.scheduleMinuteWidgetUpdate(context);
+        } else {
+            stopTicker();
+            unregisterDynamicReceiver(context);
+            WidgetUtils.cancelMinuteWidgetUpdate(context);
         }
     }
 
@@ -1367,7 +1477,19 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         super.onDisabled(context);
 
         stopTicker();
+        unregisterDynamicReceiver(context);
         WidgetUtils.cancelMinuteWidgetUpdate(context);
+    }
+
+    @Override
+    public void onDeleted(@NonNull Context context, int[] appWidgetIds) {
+        super.onDeleted(context, appWidgetIds);
+        SharedPreferences.Editor editor = getDefaultSharedPreferences(context).edit();
+        for (int id : appWidgetIds) {
+            sWidgetFontSizeCache.remove(id);
+            editor.remove(PREF_FONT_SIZE_PREFIX + id);
+        }
+        editor.apply();
     }
 
     @Keep

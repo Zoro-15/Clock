@@ -126,6 +126,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 AppExecutors.getMainThread().post(() -> {
                     if (copiedUri != null) {
                         CustomToast.show(appContext, style, font, R.string.custom_font_toast_message_selected);
+                        DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
                         WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
                         DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                     } else {
@@ -228,9 +229,13 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         restoreCustomFileDialogIfNeeded(KEY_DIGITAL_WIDGET_FONT, mDigitalWidgetFontPref, fontPickerLauncher, () -> {
             String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
             if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+                DigitalAppWidgetProvider.stopTicker();
+                DigitalAppWidgetProvider.unregisterDynamicReceiver(requireContext());
                 WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
             } else {
+                DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
                 WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+                DigitalAppWidgetProvider.startTickerIfNeeded(requireContext());
             }
             updateDigitalWidget();
             WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);
@@ -268,8 +273,10 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
 
                 if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(selectedFont)) {
                     DigitalAppWidgetProvider.stopTicker();
+                    DigitalAppWidgetProvider.unregisterDynamicReceiver(appContext);
                     WidgetUtils.cancelMinuteWidgetUpdate(appContext);
                 } else {
+                    DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
                     WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
                     DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                 }
@@ -282,6 +289,7 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
                 boolean areSecondsDisplayed = (boolean) newValue;
                 Context appContext = requireContext().getApplicationContext();
+                DigitalAppWidgetProvider.updateClockOnly(appContext);
                 if (areSecondsDisplayed) {
                     DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                 } else {
@@ -595,8 +603,10 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                     String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
                     if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
                         DigitalAppWidgetProvider.stopTicker();
+                        DigitalAppWidgetProvider.unregisterDynamicReceiver(requireContext());
                         WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
                     } else {
+                        DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
                         WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
                         DigitalAppWidgetProvider.startTickerIfNeeded(requireContext());
                     }
