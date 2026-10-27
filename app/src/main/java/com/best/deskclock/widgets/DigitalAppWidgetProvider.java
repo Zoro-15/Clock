@@ -1248,9 +1248,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             return;
         }
 
-        if (sTickerRunning) {
-            return;
-        }
+        stopTicker();
 
         sTickerRunning = true;
         sTickerRunnable = new Runnable() {
@@ -1321,8 +1319,11 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         SharedPreferences prefs = getDefaultSharedPreferences(context);
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
-        if (hasCustomFont && !sTickerRunning) {
+        if (hasCustomFont) {
             updateClockOnly(context);
+            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
+                startTickerIfNeeded(context);
+            }
             WidgetUtils.scheduleMinuteWidgetUpdate(context);
         }
     }
