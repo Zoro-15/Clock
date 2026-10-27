@@ -12,7 +12,7 @@ import android.content.SharedPreferences;
 import androidx.annotation.NonNull;
 
 import com.best.deskclock.data.WidgetDAO;
-import com.best.deskclock.utils.AppExecutors;
+import com.best.deskclock.base.AppExecutors;
 import com.best.deskclock.utils.LogUtils;
 import com.best.deskclock.utils.ThemeUtils;
 import com.best.deskclock.utils.WidgetUtils;
