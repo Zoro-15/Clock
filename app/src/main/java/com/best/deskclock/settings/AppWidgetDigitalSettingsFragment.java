@@ -271,14 +271,16 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
 
                 prefs.edit().putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, selectedFont).apply();
 
-                if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(selectedFont)) {
+                String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+                boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+                if (hasCustomFont) {
+                    DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
+                    WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                } else {
                     DigitalAppWidgetProvider.stopTicker();
                     DigitalAppWidgetProvider.unregisterDynamicReceiver(appContext);
                     WidgetUtils.cancelMinuteWidgetUpdate(appContext);
-                } else {
-                    DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
-                    WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
-                    DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
                 }
 
                 updateDigitalWidget();
@@ -287,14 +289,9 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
 
             case KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED -> {
                 Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
-                boolean areSecondsDisplayed = (boolean) newValue;
                 Context appContext = requireContext().getApplicationContext();
-                DigitalAppWidgetProvider.updateClockOnly(appContext);
-                if (areSecondsDisplayed) {
-                    DigitalAppWidgetProvider.startTickerIfNeeded(appContext);
-                } else {
-                    DigitalAppWidgetProvider.stopTicker();
-                }
+                updateDigitalWidget();
+                WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
             }
 
             case KEY_DIGITAL_WIDGET_DISPLAY_TEXT_UPPERCASE, KEY_DIGITAL_WIDGET_DISPLAY_TEXT_SHADOW,
@@ -600,15 +597,15 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
                 KEY_DIGITAL_WIDGET_FONT,
                 true,
                 () -> {
-                    String preshipped = WidgetDAO.getDigitalWidgetPreshippedFont(getPrefs());
-                    if (DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+                    String fontPath = WidgetDAO.getDigitalWidgetFont(getPrefs());
+                    boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+                    if (hasCustomFont) {
+                        DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
+                        WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+                    } else {
                         DigitalAppWidgetProvider.stopTicker();
                         DigitalAppWidgetProvider.unregisterDynamicReceiver(requireContext());
                         WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
-                    } else {
-                        DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
-                        WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
-                        DigitalAppWidgetProvider.startTickerIfNeeded(requireContext());
                     }
                     updateDigitalWidget();
                     WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);

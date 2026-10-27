@@ -845,12 +845,12 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void configureClockForMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes,
                                                 @NonNull SharedPreferences prefs) {
 
-        boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-        boolean isAmPmHidden = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs);
-
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         Typeface customTypeface = ThemeUtils.loadFont(fontPath);
         int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
+        boolean areSecondsDisplayed = customTypeface == null && WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
+        boolean isAmPmHidden = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs);
 
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             TextClock clock = sizer.findViewById(getClockViewId());
@@ -964,13 +964,16 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             }
         }
 
+        // Custom font renders time into a static Bitmap updated every minute.
+        // Seconds cannot tick natively in a bitmap over IPC, so custom font bitmaps format without seconds.
+        boolean areSecondsDisplayed = customTypeface == null && WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
+        float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
+        boolean is24Hour = DataModel.getDataModel().is24HourFormat();
+
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             TextClock clock = sizer.findViewById(getClockViewId());
             if (customTypeface != null) {
                 applyCustomTypefaceAndBoldness(clock, customTypeface, boldness);
-                boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-                float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
-                boolean is24Hour = DataModel.getDataModel().is24HourFormat();
 
                 CharSequence format = is24Hour
                     ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
@@ -994,9 +997,6 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
             if (customTypeface != null) {
                 applyCustomTypefaceAndBoldness(clockForCustomColor, customTypeface, boldness);
-                boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-                float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
-                boolean is24Hour = DataModel.getDataModel().is24HourFormat();
 
                 CharSequence format = is24Hour
                     ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
@@ -1140,104 +1140,9 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         }
     }
 
-    private static Bitmap renderClockBitmap(@NonNull Context context, @NonNull CharSequence timeText,
-                                             int fontSizePx, @NonNull Typeface typeface, int boldness,
-                                             boolean isDefaultColor, int customColor, boolean shadow) {
-        TextView tv = new TextView(context);
-        tv.setTextSize(COMPLEX_UNIT_PX, fontSizePx);
-        applyCustomTypefaceAndBoldness(tv, typeface, boldness);
-        tv.setIncludeFontPadding(false);
-        tv.setMaxLines(1);
-        int pad = (int) dpToPx(3, context.getResources().getDisplayMetrics());
-        tv.setPadding(pad, 0, pad, 0);
-        if (shadow) {
-            tv.setShadowLayer(2.75f, 2f, 2f, Color.BLACK);
-        }
-        if (isDefaultColor) {
-            tv.setTextColor(context.getColor(R.color.digital_widget_time_color));
-        } else {
-            tv.setTextColor(customColor);
-        }
-        tv.setText(timeText);
-        tv.measure(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        );
-        tv.layout(0, 0, tv.getMeasuredWidth(), tv.getMeasuredHeight());
-        if (tv.getMeasuredWidth() > 0 && tv.getMeasuredHeight() > 0) {
-            return WidgetUtils.createBitmap(tv);
-        }
-        return null;
-    }
 
     public static void updateClockOnly(@NonNull Context context) {
-        Context appContext = context.getApplicationContext();
-        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
-        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        if (fontPath == null) {
-            stopTicker();
-            unregisterDynamicReceiver(appContext);
-            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
-            return;
-        }
-        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
-        if (customTypeface == null) {
-            stopTicker();
-            unregisterDynamicReceiver(appContext);
-            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
-            return;
-        }
-
-        AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
-        if (wm == null) {
-            return;
-        }
-        ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
-        int[] widgetIds = wm.getAppWidgetIds(provider);
-        if (widgetIds == null || widgetIds.length == 0) {
-            return;
-        }
-
-        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
-        boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-        float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
-        boolean is24Hour = DataModel.getDataModel().is24HourFormat();
-        boolean isDefaultColor = WidgetDAO.isDigitalWidgetDefaultClockColor(prefs);
-        int customColor = WidgetDAO.getDigitalWidgetCustomClockColor(prefs);
-        boolean shadow = WidgetDAO.isTextShadowDisplayedOnDigitalWidget(prefs);
-
-        Typeface styledTypeface = customTypeface;
-        if (SdkUtils.isAtLeastAndroid9()) {
-            try {
-                styledTypeface = Typeface.create(customTypeface, Math.max(1, Math.min(1000, boldness)), false);
-            } catch (Exception ignored) {
-            }
-        }
-
-        CharSequence format = is24Hour
-            ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
-            : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
-        CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
-
-        for (int widgetId : widgetIds) {
-            Integer cachedSize = sWidgetFontSizeCache.get(widgetId);
-            int fontSizePx = cachedSize != null ? cachedSize : prefs.getInt(PREF_FONT_SIZE_PREFIX + widgetId, 0);
-            if (fontSizePx <= 0) {
-                new DigitalAppWidgetProvider().relayoutWidget(appContext, wm, widgetId, wm.getAppWidgetOptions(widgetId));
-                continue;
-            }
-
-            Bitmap clockBitmap = renderClockBitmap(appContext, currentTime, fontSizePx, customTypeface, boldness, isDefaultColor, customColor, shadow);
-            if (clockBitmap != null) {
-                RemoteViews rv = new RemoteViews(appContext.getPackageName(),
-                    shadow ? R.layout.appwidget_digital_with_shadow : R.layout.appwidget_digital);
-                rv.setViewVisibility(R.id.clock, View.GONE);
-                rv.setViewVisibility(R.id.clockForCustomColor, View.GONE);
-                rv.setViewVisibility(R.id.clockBitmap, View.VISIBLE);
-                rv.setImageViewBitmap(R.id.clockBitmap, clockBitmap);
-                wm.partiallyUpdateAppWidget(widgetId, rv);
-            }
-        }
+        WidgetUtils.updateWidget(context.getApplicationContext(), DigitalAppWidgetProvider.class);
     }
 
     private static BroadcastReceiver sDynamicReceiver = null;
@@ -1300,10 +1205,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         if (hasCustomFont) {
             registerDynamicReceiver(appContext);
-            updateClockOnly(appContext);
-            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
-                startTickerIfNeeded(appContext);
-            }
+            WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
             WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
         } else {
             stopTicker();
@@ -1318,11 +1220,8 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
         boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
         if (hasCustomFont) {
-            updateClockOnly(context);
-            if (WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs)) {
-                startTickerIfNeeded(context);
-            }
-            WidgetUtils.scheduleMinuteWidgetUpdate(context);
+            WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+            WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
         } else {
             stopTicker();
             unregisterDynamicReceiver(context);
@@ -1331,53 +1230,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     }
 
     public static synchronized void startTickerIfNeeded(@NonNull Context context) {
-        Context appContext = context.getApplicationContext();
-        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
-        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
-        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
-        boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-
-        if (!hasCustomFont || !areSecondsDisplayed) {
-            stopTicker();
-            return;
-        }
-
-        PowerManager pm = appContext.getSystemService(PowerManager.class);
-        if (pm != null && !pm.isInteractive()) {
-            stopTicker();
-            return;
-        }
-
-        if (sTickerRunning) {
-            return;
-        }
-
-        sTickerRunning = true;
-        sTickerRunnable = new Runnable() {
-            @Override
-            public void run() {
-                if (!sTickerRunning) {
-                    return;
-                }
-                PowerManager pm = appContext.getSystemService(PowerManager.class);
-                if (pm != null && !pm.isInteractive()) {
-                    stopTicker();
-                    return;
-                }
-
-                updateClockOnly(appContext);
-
-                long now = System.currentTimeMillis();
-                long delay = 1000 - (now % 1000);
-                if (delay <= 0) delay = 1000;
-                sHandler.postDelayed(this, delay);
-            }
-        };
-
-        long now = System.currentTimeMillis();
-        long delay = 1000 - (now % 1000);
-        if (delay <= 0) delay = 1000;
-        sHandler.postDelayed(sTickerRunnable, delay);
+        stopTicker();
     }
 
     public static synchronized void stopTicker() {
@@ -1425,7 +1278,6 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
         if (hasCustomFont) {
             registerDynamicReceiver(context);
-            startTickerIfNeeded(context);
             WidgetUtils.scheduleMinuteWidgetUpdate(context);
         } else {
             stopTicker();
@@ -1444,7 +1296,6 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         if (hasCustomFont) {
             registerDynamicReceiver(context);
-            startTickerIfNeeded(context);
             WidgetUtils.scheduleMinuteWidgetUpdate(context.getApplicationContext());
         } else {
             stopTicker();
@@ -1463,7 +1314,6 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
         if (hasCustomFont) {
             registerDynamicReceiver(context);
-            startTickerIfNeeded(context);
             WidgetUtils.scheduleMinuteWidgetUpdate(context);
         } else {
             stopTicker();
