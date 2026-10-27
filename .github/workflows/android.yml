@@ -7,9 +7,12 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: Build & Compile APK
+    name: Build & Release APK
     runs-on: ubuntu-latest
 
     steps:
@@ -37,3 +40,33 @@ jobs:
           name: Clock-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
+
+      - name: Determine Incremental Version
+        id: version
+        if: github.event_name != 'pull_request'
+        run: |
+          VERSION_NAME=$(sed -n "s/.*versionName = ['\"]\(.*\)['\"].*/\1/p" app/build.gradle | head -n 1)
+          if [ -z "$VERSION_NAME" ]; then
+            VERSION_NAME="2.34"
+          fi
+          TAG_NAME="v${VERSION_NAME}.${{ github.run_number }}"
+          RELEASE_TITLE="Clock v${VERSION_NAME} (Build #${{ github.run_number }})"
+          echo "tag_name=${TAG_NAME}" >> $GITHUB_OUTPUT
+          echo "release_title=${RELEASE_TITLE}" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag_name }}"
+          TITLE="${{ steps.version.outputs.release_title }}"
+          echo "Releasing $TAG: $TITLE"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists, updating assets..."
+            gh release upload "$TAG" app/build/outputs/apk/debug/*.apk --clobber
+          else
+            gh release create "$TAG" app/build/outputs/apk/debug/*.apk \
+              --title "$TITLE" \
+              --generate-notes
+          fi
