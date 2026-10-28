@@ -339,6 +339,9 @@ public class PreferencesKeys {
     public static final String KEY_DIGITAL_WIDGET_DEFAULT_CITY_NOTE_COLOR = "key_digital_widget_default_city_note_color";
     public static final String KEY_DIGITAL_WIDGET_CUSTOM_CITY_NOTE_COLOR = "key_digital_widget_custom_city_note_color";
     public static final String KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE = "key_digital_widget_maximum_clock_font_size";
+    public static final String KEY_DIGITAL_WIDGET_FONT_BOLDNESS = "key_digital_widget_font_boldness";
+    public static final String KEY_DIGITAL_WIDGET_FONT = "key_digital_widget_font";
+    public static final String KEY_DIGITAL_WIDGET_PRESHIPPED_FONT = "key_digital_widget_preshipped_font";
 
     // Vertical Digital Widget
     public static final String KEY_VERTICAL_WIDGET_DISPLAY_TEXT_UPPERCASE = "key_vertical_widget_display_text_uppercase";
@@ -392,4 +395,5 @@ public class PreferencesKeys {
     public static final String FILE_SCREENSAVER_DIGITAL_CLOCK_FONT = "screensaver_digital_clock_font";
     public static final String FILE_SCREENSAVER_BACKGROUND = "screensaver_background";
     public static final String FILE_DIGITAL_CLOCK_FONT = "digital_clock_font";
+    public static final String FILE_DIGITAL_WIDGET_FONT = "digital_widget_font";
 }

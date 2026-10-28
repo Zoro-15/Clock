@@ -140,6 +140,30 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
 
     protected abstract int getClockCustomViewId();
 
+    protected int getClockBitmapViewId() {
+        return 0;
+    }
+
+    protected int getTopDateBitmapViewId() {
+        return 0;
+    }
+
+    protected int getDateBitmapViewId() {
+        return 0;
+    }
+
+    protected int getNextAlarmBitmapViewId() {
+        return 0;
+    }
+
+    protected int getTimeZoneBitmapViewId() {
+        return 0;
+    }
+
+    protected int getNextAlarmTitleBitmapViewId() {
+        return 0;
+    }
+
     protected abstract int getClockHoursCustomViewId();
 
     protected abstract int getClockMinutesCustomViewId();
@@ -231,6 +255,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
     protected abstract void finalizeMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes,
                                                 @NonNull SharedPreferences prefs);
 
+    protected void createBitmapsForSizes(@NonNull View sizer, @NonNull DigitalWidgetSizes sizes, @NonNull SharedPreferences prefs) {
+    }
+
     /**
      * Rebuild and update the widget for the given instance.
      *
@@ -252,6 +279,15 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
      * @param options  widget options bundle (can be {@code null}; the method will query the manager)
      */
     protected void relayoutWidget(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId, @NonNull Bundle options) {
+        relayoutWidget(context, wm, widgetId, options, null);
+    }
+
+    /**
+     * Rebuild and update the widget for the given instance with an optional completion callback.
+     * Must be called from the main thread so that city models can be queried without violating thread rules.
+     */
+    public void relayoutWidget(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId, @NonNull Bundle options,
+                               @Nullable Runnable onComplete) {
         Context appContext = context.getApplicationContext();
         SharedPreferences prefs = getDefaultSharedPreferences(appContext);
         Context localizedContext = Utils.getLocalizedContext(appContext, SettingsDAO.getLanguageCode(prefs));
@@ -269,30 +305,36 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         updateDayChangeCallback(appContext);
 
         AppExecutors.getDiskIO().execute(() -> {
-            final RemoteViews portrait = buildRemoteViewsForOrientation(
-                localizedContext, prefs, displayMetrics, wm, appLocale, widgetId, options, true, cities);
-            final RemoteViews landscape = buildRemoteViewsForOrientation(
-                localizedContext, prefs, displayMetrics, wm, appLocale, widgetId, options, false, cities);
+            try {
+                final RemoteViews portrait = buildRemoteViewsForOrientation(
+                    localizedContext, prefs, displayMetrics, wm, appLocale, widgetId, options, true, cities);
+                final RemoteViews landscape = buildRemoteViewsForOrientation(
+                    localizedContext, prefs, displayMetrics, wm, appLocale, widgetId, options, false, cities);
 
-            if (SdkUtils.isAtLeastAndroid12()) {
-                if (cities.isEmpty()) {
-                    final RemoteViews widget = new RemoteViews(landscape, portrait);
-                    wm.updateAppWidget(widgetId, widget);
-                    return;
+                if (SdkUtils.isAtLeastAndroid12()) {
+                    if (cities.isEmpty()) {
+                        final RemoteViews widget = new RemoteViews(landscape, portrait);
+                        wm.updateAppWidget(widgetId, widget);
+                        return;
+                    }
+
+                    RemoteViews.RemoteCollectionItems items =
+                        buildRemoteCollectionItemsForCities(localizedContext, prefs, displayMetrics, appLocale, widgetId, cities);
+                    portrait.setRemoteAdapter(getWorldCityListViewId(), items);
+                    landscape.setRemoteAdapter(getWorldCityListViewId(), items);
                 }
 
-                RemoteViews.RemoteCollectionItems items =
-                    buildRemoteCollectionItemsForCities(localizedContext, prefs, displayMetrics, appLocale, widgetId, cities);
-                portrait.setRemoteAdapter(getWorldCityListViewId(), items);
-                landscape.setRemoteAdapter(getWorldCityListViewId(), items);
-            }
+                final RemoteViews widget = new RemoteViews(landscape, portrait);
+                wm.updateAppWidget(widgetId, widget);
 
-            final RemoteViews widget = new RemoteViews(landscape, portrait);
-            wm.updateAppWidget(widgetId, widget);
-
-            if (SdkUtils.isBeforeAndroid12()) {
-                //noinspection deprecation
-                wm.notifyAppWidgetViewDataChanged(widgetId, getWorldCityListViewId());
+                if (SdkUtils.isBeforeAndroid12()) {
+                    //noinspection deprecation
+                    wm.notifyAppWidgetViewDataChanged(widgetId, getWorldCityListViewId());
+                }
+            } finally {
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             }
         });
     }
@@ -316,6 +358,9 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             PendingIntent clockPendingIntent = PendingIntent.getActivity(context, 0, clockIntent, PendingIntent.FLAG_IMMUTABLE);
 
             rv.setOnClickPendingIntent(getWidgetViewId(), clockPendingIntent);
+            if (getClockBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getClockBitmapViewId(), clockPendingIntent);
+            }
 
             Uri calendarUri = CalendarContract.CONTENT_URI.buildUpon().appendPath("time").build();
             Intent calendarIntent = new Intent(Intent.ACTION_VIEW);
@@ -325,6 +370,12 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             PendingIntent calendarPendingIntent = PendingIntent.getActivity(context, 1, calendarIntent, PendingIntent.FLAG_IMMUTABLE);
 
             bindDateClickAction(rv, prefs, calendarPendingIntent);
+            if (getTopDateBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getTopDateBitmapViewId(), calendarPendingIntent);
+            }
+            if (getDateBitmapViewId() != 0) {
+                rv.setOnClickPendingIntent(getDateBitmapViewId(), calendarPendingIntent);
+            }
         }
 
         // Configure child views of the remote view.
@@ -393,6 +444,12 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
     }
 
     protected void configureBitmaps(@NonNull RemoteViews rv, @NonNull DigitalWidgetSizes sizes) {
+        safeSetImageBitmap(rv, getClockBitmapViewId(), sizes.mClockBitmap);
+        safeSetImageBitmap(rv, getTopDateBitmapViewId(), sizes.mTopDateBitmap);
+        safeSetImageBitmap(rv, getDateBitmapViewId(), sizes.mDateBitmap);
+        safeSetImageBitmap(rv, getNextAlarmBitmapViewId(), sizes.mNextAlarmBitmap);
+        safeSetImageBitmap(rv, getTimeZoneBitmapViewId(), sizes.mTimeZoneBitmap);
+        safeSetImageBitmap(rv, getNextAlarmTitleBitmapViewId(), sizes.mNextAlarmTitleBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getNextAlarmIconCustomId(), sizes.mIconBitmap);
         safeSetImageBitmap(rv, getLabelIconViewId(), sizes.mLabelBitmap);
@@ -475,19 +532,25 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         // Measure the widget at the largest possible size.
         DigitalWidgetSizes high = measure(template, template.getLargestFontSizePx(), sizer, prefs);
         if (!high.hasViolations()) {
+            createBitmapsForSizes(sizer, high, prefs);
             return high;
         }
 
         // Measure the widget at the smallest possible size.
         DigitalWidgetSizes low = measure(template, template.getSmallestFontSizePx(), sizer, prefs);
         if (low.hasViolations()) {
+            createBitmapsForSizes(sizer, low, prefs);
             return low;
         }
 
         // Binary search between the smallest and largest sizes until an optimum size is found.
         while (low.getWidgetFontSizePx() != high.getWidgetFontSizePx()) {
             int midFontSize = (low.getWidgetFontSizePx() + high.getWidgetFontSizePx()) / 2;
-            if (midFontSize == low.getWidgetFontSizePx()) return low;
+            if (midFontSize == low.getWidgetFontSizePx()) {
+                measure(template, low.getWidgetFontSizePx(), sizer, prefs);
+                createBitmapsForSizes(sizer, low, prefs);
+                return low;
+            }
 
             DigitalWidgetSizes midSize = measure(template, midFontSize, sizer, prefs);
             if (midSize.hasViolations()) {
@@ -497,6 +560,8 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
             }
         }
 
+        measure(template, low.getWidgetFontSizePx(), sizer, prefs);
+        createBitmapsForSizes(sizer, low, prefs);
         return low;
     }
 
@@ -842,7 +907,6 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
         rv.setViewVisibility(activeId, View.VISIBLE);
     }
 
-
     @Override
     public void onEnabled(@NonNull Context context) {
         super.onEnabled(context);
@@ -895,6 +959,7 @@ public abstract class BaseDigitalAppWidgetProvider extends AppWidgetProvider {
                     for (int widgetId : widgetIds) {
                         relayoutWidget(context, wm, widgetId, wm.getAppWidgetOptions(widgetId));
                     }
+                    break;
             }
         }
 

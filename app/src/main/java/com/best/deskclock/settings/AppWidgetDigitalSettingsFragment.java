@@ -4,35 +4,48 @@ package com.best.deskclock.settings;
 
 import static android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID;
 import static android.appwidget.AppWidgetManager.INVALID_APPWIDGET_ID;
+import static com.best.deskclock.settings.PreferencesDefaultValues.DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT;
 import static com.best.deskclock.settings.PreferencesKeys.*;
 
 import android.app.Activity;
 import android.appwidget.AppWidgetManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.graphics.Typeface;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.format.DateFormat;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.view.HapticFeedbackConstantsCompat;
+import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.SwitchPreferenceCompat;
 
 import com.best.deskclock.R;
+import com.best.deskclock.base.AppExecutors;
 import com.best.deskclock.base.BaseSettingsScreenFragment;
 import com.best.deskclock.data.City;
 import com.best.deskclock.data.SettingsDAO;
 import com.best.deskclock.data.WidgetDAO;
 import com.best.deskclock.settings.custompreference.ColorPickerPreference;
 import com.best.deskclock.settings.custompreference.CustomSliderPreference;
+import com.best.deskclock.uicomponents.toast.CustomToast;
+import com.best.deskclock.utils.FileUtils;
 import com.best.deskclock.utils.SdkUtils;
+import com.best.deskclock.utils.ThemeUtils;
 import com.best.deskclock.utils.Utils;
 import com.best.deskclock.utils.WidgetUtils;
 import com.best.deskclock.widgets.DigitalAppWidgetProvider;
 
 import java.util.List;
 
-public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment implements Preference.OnPreferenceChangeListener {
+public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment implements
+    Preference.OnPreferenceChangeListener, Preference.OnPreferenceClickListener {
 
     private int mAppWidgetId = INVALID_APPWIDGET_ID;
 
@@ -67,6 +80,82 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     SwitchPreferenceCompat mDefaultCityNoteColorPref;
     ColorPickerPreference mCustomCityNoteColorPref;
     CustomSliderPreference mDigitalWidgetMaxClockFontSizePref;
+    CustomSliderPreference mDigitalWidgetFontBoldnessPref;
+    Preference mDigitalWidgetFontPref;
+    ListPreference mDigitalWidgetPreshippedFontPref;
+
+    private final ActivityResultLauncher<Intent> fontPickerLauncher =
+        registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+            if (result.getResultCode() != Activity.RESULT_OK) {
+                return;
+            }
+
+            Intent intent = result.getData();
+            final Uri sourceUri = intent == null ? null : intent.getData();
+            if (sourceUri == null) {
+                return;
+            }
+
+            final Context appContext = requireContext().getApplicationContext();
+            final int style = getAccentStyle();
+            final Typeface font = getGeneralTypeface();
+            final SharedPreferences prefs = getPrefs();
+
+            // Take persistent permission
+            appContext.getContentResolver().takePersistableUriPermission(sourceUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+            String safeTitle = FileUtils.toSafeFileName(FILE_DIGITAL_WIDGET_FONT);
+            String oldFontPath = prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+
+            AppExecutors.getDiskIO().execute(() -> {
+                // Delete the old font if it exists
+                FileUtils.clearFile(oldFontPath);
+                ThemeUtils.removeFontFromCache(oldFontPath);
+
+                // Copy the new font to the device's protected storage
+                Uri copiedUri = FileUtils.copyFileToDeviceProtectedStorage(appContext, sourceUri, safeTitle);
+
+                // Save the new path and reset preshipped font
+                if (copiedUri != null) {
+                    prefs.edit()
+                        .putString(KEY_DIGITAL_WIDGET_FONT, copiedUri.getPath())
+                        .putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT)
+                        .apply();
+                }
+
+                AppExecutors.getMainThread().post(() -> {
+                    if (copiedUri != null) {
+                        CustomToast.show(appContext, style, font, R.string.custom_font_toast_message_selected);
+                        DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
+                        WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                    } else {
+                        CustomToast.show(appContext, style, font, R.string.font_message_error);
+                    }
+
+                    if (mDigitalWidgetPreshippedFontPref != null) {
+                        mDigitalWidgetPreshippedFontPref.setValue(DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
+                        mDigitalWidgetPreshippedFontPref.setSummary(mDigitalWidgetPreshippedFontPref.getEntry());
+                    }
+
+                    if (mDigitalWidgetFontBoldnessPref != null) {
+                        mDigitalWidgetFontBoldnessPref.setVisible(copiedUri != null);
+                    }
+
+                    if (!isAdded() || mDigitalWidgetFontPref == null) {
+                        return;
+                    }
+
+                    if (copiedUri != null) {
+                        mDigitalWidgetFontPref.setTitle(getString(R.string.custom_font_title_variant));
+                    } else {
+                        mDigitalWidgetFontPref.setTitle(getString(R.string.custom_font_title));
+                    }
+
+                    updateDigitalWidget();
+                    WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
+                });
+            });
+        });
 
     @Override
     protected String getFragmentTitle() {
@@ -110,6 +199,16 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         mDefaultCityNoteColorPref = findPreference(KEY_DIGITAL_WIDGET_DEFAULT_CITY_NOTE_COLOR);
         mCustomCityNoteColorPref = findPreference(KEY_DIGITAL_WIDGET_CUSTOM_CITY_NOTE_COLOR);
         mDigitalWidgetMaxClockFontSizePref = findPreference(KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE);
+        mDigitalWidgetFontBoldnessPref = findPreference(KEY_DIGITAL_WIDGET_FONT_BOLDNESS);
+        mDigitalWidgetFontPref = findPreference(KEY_DIGITAL_WIDGET_FONT);
+        if (mDigitalWidgetFontPref != null) {
+            mDigitalWidgetFontPref.setTitle(getString(getPrefs().getString(KEY_DIGITAL_WIDGET_FONT, null) == null
+                ? R.string.custom_font_title
+                : R.string.custom_font_title_variant));
+            mDigitalWidgetFontPref.setOnPreferenceClickListener(this);
+        }
+
+        mDigitalWidgetPreshippedFontPref = findPreference(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT);
 
         setupPreferences();
 
@@ -130,6 +229,23 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     public void onResume() {
         super.onResume();
 
+        restoreCustomFileDialogIfNeeded(KEY_DIGITAL_WIDGET_FONT, mDigitalWidgetFontPref, fontPickerLauncher, () -> {
+            String fontPath = WidgetDAO.getDigitalWidgetFont(getPrefs());
+            boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+            if (hasCustomFont) {
+                DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
+                WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+            } else {
+                DigitalAppWidgetProvider.unregisterDynamicReceiver(requireContext());
+                WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+            }
+            if (mDigitalWidgetFontBoldnessPref != null) {
+                mDigitalWidgetFontBoldnessPref.setVisible(hasCustomFont);
+            }
+            updateDigitalWidget();
+            WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);
+        });
+
         saveCheckedPreferenceStates();
 
         updateDigitalWidget();
@@ -138,8 +254,59 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
     @Override
     public boolean onPreferenceChange(@NonNull Preference pref, @NonNull Object newValue) {
         switch (pref.getKey()) {
+            case KEY_DIGITAL_WIDGET_PRESHIPPED_FONT -> {
+                final ListPreference preference = (ListPreference) pref;
+                final int index = preference.findIndexOfValue((String) newValue);
+                preference.setSummary(preference.getEntries()[index]);
+
+                String selectedFont = (String) newValue;
+                SharedPreferences prefs = getPrefs();
+                Context appContext = requireContext().getApplicationContext();
+
+                // If a custom font file was previously set, clear it so preshipped font takes effect
+                String customFont = prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+                if (customFont != null) {
+                    FileUtils.clearFile(customFont);
+                    ThemeUtils.removeFontFromCache(customFont);
+                    prefs.edit().remove(KEY_DIGITAL_WIDGET_FONT).apply();
+                    if (mDigitalWidgetFontPref != null) {
+                        mDigitalWidgetFontPref.setTitle(getString(R.string.custom_font_title));
+                    }
+                }
+
+                prefs.edit().putString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, selectedFont).apply();
+
+                String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+                boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+                if (mDigitalWidgetFontBoldnessPref != null) {
+                    mDigitalWidgetFontBoldnessPref.setVisible(hasCustomFont);
+                }
+
+                if (hasCustomFont) {
+                    DigitalAppWidgetProvider.registerDynamicReceiver(appContext);
+                    WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                } else {
+                    DigitalAppWidgetProvider.unregisterDynamicReceiver(appContext);
+                    WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+                }
+
+                updateDigitalWidget();
+                WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
+            }
+
+            case KEY_DIGITAL_WIDGET_FONT_BOLDNESS ->
+                Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
+
+            case KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED -> {
+                Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
+                Context appContext = requireContext().getApplicationContext();
+                updateDigitalWidget();
+                WidgetUtils.scheduleWidgetUpdate(appContext, DigitalAppWidgetProvider.class);
+            }
+
             case KEY_DIGITAL_WIDGET_DISPLAY_TEXT_UPPERCASE, KEY_DIGITAL_WIDGET_DISPLAY_TEXT_SHADOW,
-                 KEY_DIGITAL_WIDGET_SECONDS_DISPLAYED, KEY_DIGITAL_WIDGET_HIDE_AM_PM, KEY_DIGITAL_WIDGET_DISPLAY_TOP_DATE,
+                 KEY_DIGITAL_WIDGET_HIDE_AM_PM, KEY_DIGITAL_WIDGET_DISPLAY_TOP_DATE,
                  KEY_DIGITAL_WIDGET_ENABLE_CITY_FLAG, KEY_DIGITAL_WIDGET_APPLY_HORIZONTAL_PADDING ->
                 Utils.performHapticFeedback(getView(), isVibrationsEnabled(), HapticFeedbackConstantsCompat.VIRTUAL_KEY);
 
@@ -394,6 +561,18 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
             && !WidgetDAO.isDigitalWidgetDefaultCityNoteColor(getPrefs()));
         mCustomCityNoteColorPref.setOnPreferenceChangeListener(this);
 
+        String fontPath = WidgetDAO.getDigitalWidgetFont(getPrefs());
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        if (mDigitalWidgetFontBoldnessPref != null) {
+            mDigitalWidgetFontBoldnessPref.setVisible(hasCustomFont);
+            mDigitalWidgetFontBoldnessPref.setOnPreferenceChangeListener(this);
+        }
+
+        if (mDigitalWidgetPreshippedFontPref != null) {
+            mDigitalWidgetPreshippedFontPref.setSummary(mDigitalWidgetPreshippedFontPref.getEntry());
+            mDigitalWidgetPreshippedFontPref.setOnPreferenceChangeListener(this);
+        }
+
         if (mShowCitiesOnDigitalWidgetPref.isVisible() && areWorldCitiesDisplayed) {
             mDigitalWidgetMaxClockFontSizePref.setEnabled(false);
             mDigitalWidgetMaxClockFontSizePref.setTitle(R.string.digital_widget_message_summary);
@@ -424,6 +603,37 @@ public class AppWidgetDigitalSettingsFragment extends BaseSettingsScreenFragment
         mDefaultCityClockColorPref.setChecked(WidgetDAO.isDigitalWidgetDefaultCityClockColor(getPrefs()));
         mDefaultCityNameColorPref.setChecked(WidgetDAO.isDigitalWidgetDefaultCityNameColor(getPrefs()));
         mDefaultCityNoteColorPref.setChecked(WidgetDAO.isDigitalWidgetDefaultCityNoteColor(getPrefs()));
+    }
+
+    @Override
+    public boolean onPreferenceClick(@NonNull Preference pref) {
+        if (KEY_DIGITAL_WIDGET_FONT.equals(pref.getKey())) {
+            selectCustomFile(
+                mDigitalWidgetFontPref,
+                fontPickerLauncher,
+                getPrefs().getString(KEY_DIGITAL_WIDGET_FONT, null),
+                KEY_DIGITAL_WIDGET_FONT,
+                true,
+                () -> {
+                    String fontPath = WidgetDAO.getDigitalWidgetFont(getPrefs());
+                    boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+                    if (mDigitalWidgetFontBoldnessPref != null) {
+                        mDigitalWidgetFontBoldnessPref.setVisible(hasCustomFont);
+                    }
+                    if (hasCustomFont) {
+                        DigitalAppWidgetProvider.registerDynamicReceiver(requireContext());
+                        WidgetUtils.scheduleMinuteWidgetUpdate(requireContext());
+                    } else {
+                        DigitalAppWidgetProvider.unregisterDynamicReceiver(requireContext());
+                        WidgetUtils.cancelMinuteWidgetUpdate(requireContext());
+                    }
+                    updateDigitalWidget();
+                    WidgetUtils.scheduleWidgetUpdate(requireContext(), DigitalAppWidgetProvider.class);
+                }
+            );
+            return true;
+        }
+        return false;
     }
 
     private void updateDigitalWidget() {

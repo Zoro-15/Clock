@@ -12,7 +12,9 @@ import static android.content.Intent.ACTION_TIME_CHANGED;
 import static com.best.deskclock.DeskClockApplication.getDefaultSharedPreferences;
 
 import android.annotation.SuppressLint;
+import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -28,10 +30,13 @@ import com.best.deskclock.base.KeepAliveService;
 import com.best.deskclock.controller.Controller;
 import com.best.deskclock.data.DataModel;
 import com.best.deskclock.data.SettingsDAO;
+import com.best.deskclock.data.WidgetDAO;
 import com.best.deskclock.provider.AlarmInstance;
 import com.best.deskclock.utils.LogUtils;
 import com.best.deskclock.utils.NotificationUtils;
 import com.best.deskclock.utils.SdkUtils;
+import com.best.deskclock.utils.WidgetUtils;
+import com.best.deskclock.widgets.DigitalAppWidgetProvider;
 
 import java.util.Calendar;
 import java.util.List;
@@ -96,6 +101,18 @@ public class AlarmInitReceiver extends BroadcastReceiver {
             // Stopwatch and timer data need to be updated on time change so the reboot
             // functionality works as expected.
             dataModel.updateAfterTimeSet();
+        }
+
+        if (ACTION_BOOT_COMPLETED.equals(action) || ACTION_TIME_CHANGED.equals(action)) {
+            if (WidgetDAO.getDigitalWidgetFont(prefs) != null) {
+                AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
+                ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
+                int[] widgetIds = wm != null ? wm.getAppWidgetIds(provider) : null;
+                if (widgetIds != null && widgetIds.length > 0) {
+                    WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+                    WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+                }
+            }
         }
 
         // Update shortcuts so they exist for the user.
