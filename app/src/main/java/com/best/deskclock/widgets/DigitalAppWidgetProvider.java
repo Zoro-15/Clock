@@ -6,15 +6,26 @@ import static android.util.TypedValue.COMPLEX_UNIT_PX;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static androidx.core.util.TypedValueCompat.dpToPx;
+import static com.best.deskclock.DeskClockApplication.getDefaultSharedPreferences;
 import static com.best.deskclock.settings.PreferencesDefaultValues.DEFAULT_WIDGET_BACKGROUND_CORNER_RADIUS;
 import static com.best.deskclock.utils.WidgetUtils.METHOD_SET_IMAGE_ICON;
 
+import android.annotation.SuppressLint;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
+import android.graphics.Paint;
+import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
+import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.format.DateFormat;
 import android.util.DisplayMetrics;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -27,12 +38,15 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.best.deskclock.R;
+import com.best.deskclock.data.DataModel;
 import com.best.deskclock.data.WidgetDAO;
 import com.best.deskclock.utils.AlarmUtils;
 import com.best.deskclock.utils.ClockUtils;
 import com.best.deskclock.utils.SdkUtils;
+import com.best.deskclock.utils.ThemeUtils;
 import com.best.deskclock.utils.WidgetUtils;
 
+import java.util.Calendar;
 import java.util.Locale;
 
 /**
@@ -85,6 +99,36 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     @Override
     protected int getClockViewId() {
         return R.id.clock;
+    }
+
+    @Override
+    protected int getClockBitmapViewId() {
+        return R.id.clockBitmap;
+    }
+
+    @Override
+    protected int getTopDateBitmapViewId() {
+        return R.id.topDateBitmap;
+    }
+
+    @Override
+    protected int getDateBitmapViewId() {
+        return R.id.dateBitmap;
+    }
+
+    @Override
+    protected int getNextAlarmBitmapViewId() {
+        return R.id.nextAlarmBitmap;
+    }
+
+    @Override
+    protected int getTimeZoneBitmapViewId() {
+        return R.id.timeZoneBitmap;
+    }
+
+    @Override
+    protected int getNextAlarmTitleBitmapViewId() {
+        return R.id.nextAlarmTitleBitmap;
     }
 
     @Override
@@ -292,21 +336,32 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
 
     @Override
     protected void configureClock(@NonNull RemoteViews rv, @NonNull SharedPreferences prefs) {
-        boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
-        float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
 
-        if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
-            rv.setViewVisibility(getClockViewId(), VISIBLE);
-            rv.setViewVisibility(getClockCustomViewId(), GONE);
-
-            WidgetUtils.applyClockFormat(rv, getClockViewId(), amPmRatio, areSecondsDisplayed);
-        } else {
+        if (hasCustomFont) {
             rv.setViewVisibility(getClockViewId(), GONE);
-            rv.setViewVisibility(getClockCustomViewId(), VISIBLE);
+            rv.setViewVisibility(getClockCustomViewId(), GONE);
+            rv.setViewVisibility(getClockBitmapViewId(), VISIBLE);
+        } else {
+            rv.setViewVisibility(getClockBitmapViewId(), GONE);
 
-            WidgetUtils.applyClockFormat(rv, getClockCustomViewId(), amPmRatio, areSecondsDisplayed);
+            boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
+            float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
 
-            rv.setTextColor(getClockCustomViewId(), WidgetDAO.getDigitalWidgetCustomClockColor(prefs));
+            if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
+                rv.setViewVisibility(getClockViewId(), VISIBLE);
+                rv.setViewVisibility(getClockCustomViewId(), GONE);
+
+                WidgetUtils.applyClockFormat(rv, getClockViewId(), amPmRatio, areSecondsDisplayed);
+            } else {
+                rv.setViewVisibility(getClockViewId(), GONE);
+                rv.setViewVisibility(getClockCustomViewId(), VISIBLE);
+
+                WidgetUtils.applyClockFormat(rv, getClockCustomViewId(), amPmRatio, areSecondsDisplayed);
+
+                rv.setTextColor(getClockCustomViewId(), WidgetDAO.getDigitalWidgetCustomClockColor(prefs));
+            }
         }
     }
 
@@ -319,9 +374,14 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             rv.setViewVisibility(getTopDateViewId(), GONE);
             rv.setViewVisibility(getDateCustomViewId(), GONE);
             rv.setViewVisibility(getTopDateCustomViewId(), GONE);
+            rv.setViewVisibility(getTopDateBitmapViewId(), GONE);
+            rv.setViewVisibility(getDateBitmapViewId(), GONE);
             rv.setViewVisibility(R.id.clockSpacer, VISIBLE);
             return;
         }
+
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
 
         String nextAlarmTime = getNextAlarmTime(context);
         boolean isAlarmVisible = WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) && !TextUtils.isEmpty(nextAlarmTime);
@@ -330,35 +390,55 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         String dateFormat = WidgetUtils.getDateFormat(context, isAlarmVisible);
         String dateText = isTextUppercase(prefs) ? dateFormat.toUpperCase(locale) : dateFormat;
 
-        if (isTopDateDisplayed) {
-            rv.setViewVisibility(R.id.clockSpacer, GONE);
+        if (hasCustomFont) {
             rv.setViewVisibility(getDateViewId(), GONE);
-            rv.setViewVisibility(getDateCustomViewId(), GONE);
-
-            if (isDefaultDateColor) {
-                rv.setViewVisibility(getTopDateViewId(), VISIBLE);
-                rv.setViewVisibility(getTopDateCustomViewId(), GONE);
-                rv.setTextViewText(getTopDateViewId(), dateText);
-            } else {
-                rv.setViewVisibility(getTopDateViewId(), GONE);
-                rv.setViewVisibility(getTopDateCustomViewId(), VISIBLE);
-                rv.setTextColor(getTopDateCustomViewId(), WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
-                rv.setTextViewText(getTopDateCustomViewId(), dateText);
-            }
-        } else {
-            rv.setViewVisibility(R.id.clockSpacer, VISIBLE);
             rv.setViewVisibility(getTopDateViewId(), GONE);
+            rv.setViewVisibility(getDateCustomViewId(), GONE);
             rv.setViewVisibility(getTopDateCustomViewId(), GONE);
 
-            if (isDefaultDateColor) {
-                rv.setViewVisibility(getDateViewId(), VISIBLE);
-                rv.setViewVisibility(getDateCustomViewId(), GONE);
-                rv.setTextViewText(getDateViewId(), dateText);
+            if (isTopDateDisplayed) {
+                rv.setViewVisibility(R.id.clockSpacer, GONE);
+                rv.setViewVisibility(getTopDateBitmapViewId(), VISIBLE);
+                rv.setViewVisibility(getDateBitmapViewId(), GONE);
             } else {
+                rv.setViewVisibility(R.id.clockSpacer, VISIBLE);
+                rv.setViewVisibility(getTopDateBitmapViewId(), GONE);
+                rv.setViewVisibility(getDateBitmapViewId(), VISIBLE);
+            }
+        } else {
+            rv.setViewVisibility(getTopDateBitmapViewId(), GONE);
+            rv.setViewVisibility(getDateBitmapViewId(), GONE);
+
+            if (isTopDateDisplayed) {
+                rv.setViewVisibility(R.id.clockSpacer, GONE);
                 rv.setViewVisibility(getDateViewId(), GONE);
-                rv.setViewVisibility(getDateCustomViewId(), VISIBLE);
-                rv.setTextColor(getDateCustomViewId(), WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
-                rv.setTextViewText(getDateCustomViewId(), dateText);
+                rv.setViewVisibility(getDateCustomViewId(), GONE);
+
+                if (isDefaultDateColor) {
+                    rv.setViewVisibility(getTopDateViewId(), VISIBLE);
+                    rv.setViewVisibility(getTopDateCustomViewId(), GONE);
+                    rv.setTextViewText(getTopDateViewId(), dateText);
+                } else {
+                    rv.setViewVisibility(getTopDateViewId(), GONE);
+                    rv.setViewVisibility(getTopDateCustomViewId(), VISIBLE);
+                    rv.setTextColor(getTopDateCustomViewId(), WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
+                    rv.setTextViewText(getTopDateCustomViewId(), dateText);
+                }
+            } else {
+                rv.setViewVisibility(R.id.clockSpacer, VISIBLE);
+                rv.setViewVisibility(getTopDateViewId(), GONE);
+                rv.setViewVisibility(getTopDateCustomViewId(), GONE);
+
+                if (isDefaultDateColor) {
+                    rv.setViewVisibility(getDateViewId(), VISIBLE);
+                    rv.setViewVisibility(getDateCustomViewId(), GONE);
+                    rv.setTextViewText(getDateViewId(), dateText);
+                } else {
+                    rv.setViewVisibility(getDateViewId(), GONE);
+                    rv.setViewVisibility(getDateCustomViewId(), VISIBLE);
+                    rv.setTextColor(getDateCustomViewId(), WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
+                    rv.setTextViewText(getDateCustomViewId(), dateText);
+                }
             }
         }
     }
@@ -374,42 +454,67 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             rv.setViewVisibility(getNextAlarmCustomViewId(), GONE);
             rv.setViewVisibility(getTimeZoneCustomViewId(), GONE);
             rv.setViewVisibility(getNextAlarmIconCustomId(), GONE);
+            rv.setViewVisibility(getNextAlarmBitmapViewId(), GONE);
+            rv.setViewVisibility(getTimeZoneBitmapViewId(), GONE);
             return;
         }
 
-        String nextAlarmText = isTextUppercase(prefs) ? nextAlarmTime.toUpperCase(locale) : nextAlarmTime;
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        boolean isDefaultColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs);
+        int customColor = WidgetDAO.getDigitalWidgetCustomNextAlarmColor(prefs);
 
-        if (WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs)) {
-            rv.setViewVisibility(getNextAlarmViewId(), VISIBLE);
+        if (isDefaultColor) {
             rv.setViewVisibility(getNextAlarmIconId(), VISIBLE);
-            rv.setViewVisibility(getNextAlarmCustomViewId(), GONE);
-            rv.setViewVisibility(getTimeZoneCustomViewId(), GONE);
             rv.setViewVisibility(getNextAlarmIconCustomId(), GONE);
-            rv.setTextViewText(getNextAlarmViewId(), nextAlarmText);
+        } else {
+            rv.setViewVisibility(getNextAlarmIconId(), GONE);
+            rv.setViewVisibility(getNextAlarmIconCustomId(), VISIBLE);
+        }
 
+        if (hasCustomFont) {
+            rv.setViewVisibility(getNextAlarmViewId(), GONE);
+            rv.setViewVisibility(getNextAlarmCustomViewId(), GONE);
+            rv.setViewVisibility(getTimeZoneViewId(), GONE);
+            rv.setViewVisibility(getTimeZoneCustomViewId(), GONE);
+
+            rv.setViewVisibility(getNextAlarmBitmapViewId(), VISIBLE);
             if (TextUtils.isEmpty(timeZoneSuffix)) {
-                rv.setViewVisibility(getTimeZoneViewId(), GONE);
+                rv.setViewVisibility(getTimeZoneBitmapViewId(), GONE);
             } else {
-                rv.setViewVisibility(getTimeZoneViewId(), VISIBLE);
-                rv.setTextViewText(getTimeZoneViewId(), timeZoneSuffix);
+                rv.setViewVisibility(getTimeZoneBitmapViewId(), VISIBLE);
             }
         } else {
-            int customColor = WidgetDAO.getDigitalWidgetCustomNextAlarmColor(prefs);
+            rv.setViewVisibility(getNextAlarmBitmapViewId(), GONE);
+            rv.setViewVisibility(getTimeZoneBitmapViewId(), GONE);
 
-            rv.setViewVisibility(getNextAlarmViewId(), GONE);
-            rv.setViewVisibility(getTimeZoneViewId(), GONE);
-            rv.setViewVisibility(getNextAlarmIconId(), GONE);
-            rv.setViewVisibility(getNextAlarmCustomViewId(), VISIBLE);
-            rv.setViewVisibility(getNextAlarmIconCustomId(), VISIBLE);
-            rv.setTextColor(getNextAlarmCustomViewId(), customColor);
-            rv.setTextViewText(getNextAlarmCustomViewId(), nextAlarmText);
+            String nextAlarmText = isTextUppercase(prefs) ? nextAlarmTime.toUpperCase(locale) : nextAlarmTime;
 
-            if (TextUtils.isEmpty(timeZoneSuffix)) {
+            if (isDefaultColor) {
+                rv.setViewVisibility(getNextAlarmViewId(), VISIBLE);
+                rv.setViewVisibility(getNextAlarmCustomViewId(), GONE);
                 rv.setViewVisibility(getTimeZoneCustomViewId(), GONE);
+                rv.setTextViewText(getNextAlarmViewId(), nextAlarmText);
+
+                if (TextUtils.isEmpty(timeZoneSuffix)) {
+                    rv.setViewVisibility(getTimeZoneViewId(), GONE);
+                } else {
+                    rv.setViewVisibility(getTimeZoneViewId(), VISIBLE);
+                    rv.setTextViewText(getTimeZoneViewId(), timeZoneSuffix);
+                }
             } else {
-                rv.setViewVisibility(getTimeZoneCustomViewId(), VISIBLE);
-                rv.setTextViewText(getTimeZoneCustomViewId(), timeZoneSuffix);
-                rv.setTextColor(getTimeZoneCustomViewId(), customColor);
+                rv.setViewVisibility(getNextAlarmViewId(), GONE);
+                rv.setViewVisibility(getNextAlarmCustomViewId(), VISIBLE);
+                rv.setTextColor(getNextAlarmCustomViewId(), customColor);
+                rv.setTextViewText(getNextAlarmCustomViewId(), nextAlarmText);
+
+                if (TextUtils.isEmpty(timeZoneSuffix)) {
+                    rv.setViewVisibility(getTimeZoneCustomViewId(), GONE);
+                } else {
+                    rv.setViewVisibility(getTimeZoneCustomViewId(), VISIBLE);
+                    rv.setTextViewText(getTimeZoneCustomViewId(), timeZoneSuffix);
+                    rv.setTextColor(getTimeZoneCustomViewId(), customColor);
+                }
             }
         }
     }
@@ -418,37 +523,46 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void configureNextAlarmTitle(@NonNull RemoteViews rv, @NonNull SharedPreferences prefs, @NonNull String nextAlarmTime,
                                            @Nullable String nextAlarmTitle, @NonNull Locale locale) {
 
-        if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || !WidgetDAO.isNextAlarmTitleDisplayedOnDigitalWidget(prefs)) {
+        if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || !WidgetDAO.isNextAlarmTitleDisplayedOnDigitalWidget(prefs)
+            || TextUtils.isEmpty(nextAlarmTime) || TextUtils.isEmpty(nextAlarmTitle)) {
             rv.setViewVisibility(getLabelIconViewId(), GONE);
             rv.setViewVisibility(getNextAlarmTitleViewId(), GONE);
             rv.setViewVisibility(getLabelIconCustomViewId(), GONE);
             rv.setViewVisibility(getNextAlarmTitleCustomViewId(), GONE);
+            rv.setViewVisibility(getNextAlarmTitleBitmapViewId(), GONE);
             return;
         }
 
-        if (TextUtils.isEmpty(nextAlarmTime) || TextUtils.isEmpty(nextAlarmTitle)) {
-            rv.setViewVisibility(getLabelIconViewId(), GONE);
-            rv.setViewVisibility(getNextAlarmTitleViewId(), GONE);
-            rv.setViewVisibility(getLabelIconCustomViewId(), GONE);
-            rv.setViewVisibility(getNextAlarmTitleCustomViewId(), GONE);
-            return;
-        }
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+        boolean isDefaultColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs);
 
-        String nextAlarmTitleText = isTextUppercase(prefs) ? nextAlarmTitle.toUpperCase(locale) : nextAlarmTitle;
-
-        if (WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs)) {
+        if (isDefaultColor) {
             rv.setViewVisibility(getLabelIconViewId(), VISIBLE);
-            rv.setViewVisibility(getNextAlarmTitleViewId(), VISIBLE);
             rv.setViewVisibility(getLabelIconCustomViewId(), GONE);
-            rv.setViewVisibility(getNextAlarmTitleCustomViewId(), GONE);
-            rv.setTextViewText(getNextAlarmTitleViewId(), nextAlarmTitleText);
         } else {
             rv.setViewVisibility(getLabelIconViewId(), GONE);
-            rv.setViewVisibility(getNextAlarmTitleViewId(), GONE);
             rv.setViewVisibility(getLabelIconCustomViewId(), VISIBLE);
-            rv.setViewVisibility(getNextAlarmTitleCustomViewId(), VISIBLE);
-            rv.setTextColor(getNextAlarmTitleCustomViewId(), WidgetDAO.getDigitalWidgetCustomNextAlarmTitleColor(prefs));
-            rv.setTextViewText(getNextAlarmTitleCustomViewId(), nextAlarmTitleText);
+        }
+
+        if (hasCustomFont) {
+            rv.setViewVisibility(getNextAlarmTitleViewId(), GONE);
+            rv.setViewVisibility(getNextAlarmTitleCustomViewId(), GONE);
+            rv.setViewVisibility(getNextAlarmTitleBitmapViewId(), VISIBLE);
+        } else {
+            rv.setViewVisibility(getNextAlarmTitleBitmapViewId(), GONE);
+            String nextAlarmTitleText = isTextUppercase(prefs) ? nextAlarmTitle.toUpperCase(locale) : nextAlarmTitle;
+
+            if (isDefaultColor) {
+                rv.setViewVisibility(getNextAlarmTitleViewId(), VISIBLE);
+                rv.setViewVisibility(getNextAlarmTitleCustomViewId(), GONE);
+                rv.setTextViewText(getNextAlarmTitleViewId(), nextAlarmTitleText);
+            } else {
+                rv.setViewVisibility(getNextAlarmTitleViewId(), GONE);
+                rv.setViewVisibility(getNextAlarmTitleCustomViewId(), VISIBLE);
+                rv.setTextColor(getNextAlarmTitleCustomViewId(), WidgetDAO.getDigitalWidgetCustomNextAlarmTitleColor(prefs));
+                rv.setTextViewText(getNextAlarmTitleCustomViewId(), nextAlarmTitleText);
+            }
         }
     }
 
@@ -497,12 +611,20 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         final TextClock clock = sizer.findViewById(getClockViewId());
         final TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
 
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        if (customTypeface != null) {
+            clock.setTypeface(customTypeface);
+            clockForCustomColor.setTypeface(customTypeface);
+        }
+
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             clock.setVisibility(VISIBLE);
             clockForCustomColor.setVisibility(GONE);
         } else {
             clock.setVisibility(GONE);
             clockForCustomColor.setVisibility(VISIBLE);
+            clockForCustomColor.setTextColor(WidgetDAO.getDigitalWidgetCustomClockColor(prefs));
         }
     }
 
@@ -515,6 +637,16 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         final TextView dateForCustomColor = sizer.findViewById(getDateCustomViewId());
         final TextView topDateForCustomColor = sizer.findViewById(getTopDateCustomViewId());
         final Space clockSpacer = sizer.findViewById(R.id.clockSpacer);
+
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+        if (customTypeface != null) {
+            applyCustomTypefaceAndBoldness(date, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(topDate, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(dateForCustomColor, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(topDateForCustomColor, customTypeface, boldness);
+        }
 
         if (!WidgetDAO.isDateDisplayedOnDigitalWidget(prefs)) {
             date.setVisibility(GONE);
@@ -545,6 +677,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                 topDate.setVisibility(GONE);
                 topDateForCustomColor.setVisibility(VISIBLE);
                 topDateForCustomColor.setText(dateText);
+                topDateForCustomColor.setTextColor(WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
             }
         } else {
             clockSpacer.setVisibility(VISIBLE);
@@ -559,6 +692,7 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                 date.setVisibility(GONE);
                 dateForCustomColor.setVisibility(VISIBLE);
                 dateForCustomColor.setText(dateText);
+                dateForCustomColor.setTextColor(WidgetDAO.getDigitalWidgetCustomDateColor(prefs));
             }
         }
     }
@@ -573,6 +707,16 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         final TextView nextAlarmIconForCustomColor = sizer.findViewById(getNextAlarmIconCustomId());
         final TextView nextAlarmForCustomColor = sizer.findViewById(getNextAlarmCustomViewId());
         final TextView timeZoneForCustomColor = sizer.findViewById(getTimeZoneCustomViewId());
+
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+        if (customTypeface != null) {
+            applyCustomTypefaceAndBoldness(nextAlarm, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(timeZone, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(nextAlarmForCustomColor, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(timeZoneForCustomColor, customTypeface, boldness);
+        }
 
         if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || TextUtils.isEmpty(nextAlarmTime)) {
             nextAlarm.setVisibility(GONE);
@@ -633,6 +777,14 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         final TextView labelIconForCustomColor = sizer.findViewById(getLabelIconCustomViewId());
         final TextView nextAlarmTitleViewForCustomColor = sizer.findViewById(getNextAlarmTitleCustomViewId());
 
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+        if (customTypeface != null) {
+            applyCustomTypefaceAndBoldness(nextAlarmTitleView, customTypeface, boldness);
+            applyCustomTypefaceAndBoldness(nextAlarmTitleViewForCustomColor, customTypeface, boldness);
+        }
+
         if (!WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs) || !WidgetDAO.isNextAlarmTitleDisplayedOnDigitalWidget(prefs)) {
             labelIcon.setVisibility(GONE);
             nextAlarmTitleView.setVisibility(GONE);
@@ -676,17 +828,25 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void configureClockForMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes,
                                                 @NonNull SharedPreferences prefs) {
 
-        boolean areSecondsDisplayed = WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
+        boolean areSecondsDisplayed = customTypeface == null && WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
         boolean isAmPmHidden = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs);
 
         if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
             TextClock clock = sizer.findViewById(getClockViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(clock, customTypeface, boldness);
+            }
             clock.setText(WidgetUtils.getLongestTimeString(clock, areSecondsDisplayed, isAmPmHidden));
             clock.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mWidgetFontSizePx);
         } else {
             final TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
-            clockForCustomColor.setText(WidgetUtils.getLongestTimeString(clockForCustomColor, areSecondsDisplayed, isAmPmHidden));
-            clockForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mWidgetFontSizePx);
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(clockForCustomColor, customTypeface, boldness);
+            }
             clockForCustomColor.setText(WidgetUtils.getLongestTimeString(clockForCustomColor, areSecondsDisplayed, isAmPmHidden));
             clockForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mWidgetFontSizePx);
         }
@@ -697,12 +857,21 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
                                                @NonNull SharedPreferences prefs) {
 
         boolean isTopDateDisplayed = WidgetDAO.isTopDateDisplayedOnDigitalWidget(prefs);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
 
         if (WidgetDAO.isDigitalWidgetDefaultDateColor(prefs)) {
             final TextView date = sizer.findViewById(isTopDateDisplayed ? getTopDateViewId() : getDateViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(date, customTypeface, boldness);
+            }
             date.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         } else {
             final TextView dateForCustomColor = sizer.findViewById(isTopDateDisplayed ? getTopDateCustomViewId() : getDateCustomViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(dateForCustomColor, customTypeface, boldness);
+            }
             dateForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         }
     }
@@ -711,11 +880,19 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
     protected void configureNextAlarmForMeasurement(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes,
                                                     @NonNull SharedPreferences prefs) {
 
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
         if (WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs)) {
             final TextView nextAlarm = sizer.findViewById(getNextAlarmViewId());
             final TextView timeZone = sizer.findViewById(getTimeZoneViewId());
             final TextView nextAlarmIcon = sizer.findViewById(getNextAlarmIconId());
 
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarm, customTypeface, boldness);
+                applyCustomTypefaceAndBoldness(timeZone, customTypeface, boldness);
+            }
             nextAlarm.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
             timeZone.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mTimeZoneFontSizePx);
             nextAlarmIcon.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
@@ -725,6 +902,10 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             final TextView timeZoneForCustomColor = sizer.findViewById(getTimeZoneCustomViewId());
             final TextView nextAlarmIconForCustomColor = sizer.findViewById(getNextAlarmIconCustomId());
 
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmForCustomColor, customTypeface, boldness);
+                applyCustomTypefaceAndBoldness(timeZoneForCustomColor, customTypeface, boldness);
+            }
             nextAlarmForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
             timeZoneForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mTimeZoneFontSizePx);
             nextAlarmIconForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
@@ -734,12 +915,18 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         if (WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs)) {
             final TextView labelIcon = sizer.findViewById(getLabelIconViewId());
             final TextView nextAlarmTitle = sizer.findViewById(getNextAlarmTitleViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmTitle, customTypeface, boldness);
+            }
             labelIcon.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
             labelIcon.setPadding(measuredSizes.mIconPaddingPx, 0, measuredSizes.mIconPaddingPx, 0);
             nextAlarmTitle.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
         } else {
             final TextView labelIconForCustomColor = sizer.findViewById(getLabelIconCustomViewId());
             final TextView nextAlarmTitleForCustomColor = sizer.findViewById(getNextAlarmTitleCustomViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(nextAlarmTitleForCustomColor, customTypeface, boldness);
+            }
             labelIconForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mIconFontSizePx);
             labelIconForCustomColor.setPadding(measuredSizes.mIconPaddingPx, 0, measuredSizes.mIconPaddingPx, 0);
             nextAlarmTitleForCustomColor.setTextSize(COMPLEX_UNIT_PX, measuredSizes.mFontSizePx);
@@ -756,6 +943,141 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
             TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
             measuredSizes.mMeasuredTextForCustomColorWidthPx = clockForCustomColor.getMeasuredWidth();
             measuredSizes.mMeasuredTextForCustomColorHeightPx = clockForCustomColor.getMeasuredHeight();
+        }
+    }
+
+    @Override
+    protected void createBitmapsForSizes(@NonNull View sizer, @NonNull DigitalWidgetSizes measuredSizes, @NonNull SharedPreferences prefs) {
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        Typeface customTypeface = ThemeUtils.loadFont(fontPath);
+        int boldness = WidgetDAO.getDigitalWidgetFontBoldness(prefs);
+
+        Typeface styledTypeface = customTypeface;
+        if (customTypeface != null && SdkUtils.isAtLeastAndroid9()) {
+            try {
+                styledTypeface = Typeface.create(customTypeface, Math.max(1, Math.min(1000, boldness)), false);
+            } catch (Exception ignored) {
+            }
+        }
+
+        // Custom font renders time into a static Bitmap updated every minute.
+        // Seconds cannot tick natively in a bitmap over IPC, so custom font bitmaps format without seconds.
+        boolean areSecondsDisplayed = customTypeface == null && WidgetDAO.areSecondsDisplayedOnDigitalWidget(prefs);
+        float amPmRatio = WidgetDAO.isAmPmHiddenOnDigitalWidget(prefs) ? 0 : 0.4f;
+        boolean is24Hour = DataModel.getDataModel().is24HourFormat();
+
+        if (WidgetDAO.isDigitalWidgetDefaultClockColor(prefs)) {
+            TextClock clock = sizer.findViewById(getClockViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(clock, customTypeface, boldness);
+
+                CharSequence format = is24Hour
+                    ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
+                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
+                CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
+                clock.setText(currentTime);
+
+                clock.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                );
+                clock.layout(0, 0, clock.getMeasuredWidth(), clock.getMeasuredHeight());
+
+                if (clock.getWidth() > 0 && clock.getHeight() > 0) {
+                    measuredSizes.mClockBitmap = WidgetUtils.createBitmap(clock);
+                }
+            }
+        } else {
+            TextClock clockForCustomColor = sizer.findViewById(getClockCustomViewId());
+            if (customTypeface != null) {
+                applyCustomTypefaceAndBoldness(clockForCustomColor, customTypeface, boldness);
+                clockForCustomColor.setTextColor(WidgetDAO.getDigitalWidgetCustomClockColor(prefs));
+
+                CharSequence format = is24Hour
+                    ? ClockUtils.get24ModeFormat(areSecondsDisplayed, false)
+                    : ClockUtils.get12ModeFormat(areSecondsDisplayed, amPmRatio, styledTypeface, "sans-serif", Typeface.NORMAL, false);
+                CharSequence currentTime = DateFormat.format(format, Calendar.getInstance());
+                clockForCustomColor.setText(currentTime);
+
+                clockForCustomColor.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                );
+                clockForCustomColor.layout(0, 0, clockForCustomColor.getMeasuredWidth(), clockForCustomColor.getMeasuredHeight());
+
+                if (clockForCustomColor.getWidth() > 0 && clockForCustomColor.getHeight() > 0) {
+                    measuredSizes.mClockBitmap = WidgetUtils.createBitmap(clockForCustomColor);
+                }
+            }
+        }
+
+        if (customTypeface != null && WidgetDAO.isDateDisplayedOnDigitalWidget(prefs)) {
+            boolean isTopDateDisplayed = WidgetDAO.isTopDateDisplayedOnDigitalWidget(prefs);
+            boolean isDefaultDateColor = WidgetDAO.isDigitalWidgetDefaultDateColor(prefs);
+            TextView dateView = sizer.findViewById(isTopDateDisplayed
+                ? (isDefaultDateColor ? getTopDateViewId() : getTopDateCustomViewId())
+                : (isDefaultDateColor ? getDateViewId() : getDateCustomViewId()));
+            if (dateView != null && dateView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(dateView, customTypeface, boldness);
+                dateView.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                );
+                dateView.layout(0, 0, dateView.getMeasuredWidth(), dateView.getMeasuredHeight());
+                if (dateView.getWidth() > 0 && dateView.getHeight() > 0) {
+                    Bitmap dateBitmap = WidgetUtils.createBitmap(dateView);
+                    if (isTopDateDisplayed) {
+                        measuredSizes.mTopDateBitmap = dateBitmap;
+                    } else {
+                        measuredSizes.mDateBitmap = dateBitmap;
+                    }
+                }
+            }
+        }
+
+        if (customTypeface != null && WidgetDAO.isNextAlarmDisplayedOnDigitalWidget(prefs)) {
+            boolean isDefaultAlarmColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs);
+            TextView nextAlarmView = sizer.findViewById(isDefaultAlarmColor ? getNextAlarmViewId() : getNextAlarmCustomViewId());
+            if (nextAlarmView != null && nextAlarmView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(nextAlarmView, customTypeface, boldness);
+                nextAlarmView.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                );
+                nextAlarmView.layout(0, 0, nextAlarmView.getMeasuredWidth(), nextAlarmView.getMeasuredHeight());
+                if (nextAlarmView.getWidth() > 0 && nextAlarmView.getHeight() > 0) {
+                    measuredSizes.mNextAlarmBitmap = WidgetUtils.createBitmap(nextAlarmView);
+                }
+            }
+
+            TextView timeZoneView = sizer.findViewById(isDefaultAlarmColor ? getTimeZoneViewId() : getTimeZoneCustomViewId());
+            if (timeZoneView != null && timeZoneView.getVisibility() == VISIBLE) {
+                applyCustomTypefaceAndBoldness(timeZoneView, customTypeface, boldness);
+                timeZoneView.measure(
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                );
+                timeZoneView.layout(0, 0, timeZoneView.getMeasuredWidth(), timeZoneView.getMeasuredHeight());
+                if (timeZoneView.getWidth() > 0 && timeZoneView.getHeight() > 0) {
+                    measuredSizes.mTimeZoneBitmap = WidgetUtils.createBitmap(timeZoneView);
+                }
+            }
+
+            if (WidgetDAO.isNextAlarmTitleDisplayedOnDigitalWidget(prefs)) {
+                boolean isDefaultTitleColor = WidgetDAO.isDigitalWidgetDefaultNextAlarmTitleColor(prefs);
+                TextView nextAlarmTitleView = sizer.findViewById(isDefaultTitleColor ? getNextAlarmTitleViewId() : getNextAlarmTitleCustomViewId());
+                if (nextAlarmTitleView != null && nextAlarmTitleView.getVisibility() == VISIBLE) {
+                    applyCustomTypefaceAndBoldness(nextAlarmTitleView, customTypeface, boldness);
+                    nextAlarmTitleView.measure(
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                    );
+                    nextAlarmTitleView.layout(0, 0, nextAlarmTitleView.getMeasuredWidth(), nextAlarmTitleView.getMeasuredHeight());
+                    if (nextAlarmTitleView.getWidth() > 0 && nextAlarmTitleView.getHeight() > 0) {
+                        measuredSizes.mNextAlarmTitleBitmap = WidgetUtils.createBitmap(nextAlarmTitleView);
+                    }
+                }
+            }
         }
 
         if (WidgetDAO.isDigitalWidgetDefaultNextAlarmColor(prefs)) {
@@ -783,9 +1105,185 @@ public class DigitalAppWidgetProvider extends BaseDigitalAppWidgetProvider {
         }
     }
 
+    public static void applyCustomTypefaceAndBoldness(@NonNull TextView tv, @Nullable Typeface typeface, int boldness) {
+        if (typeface == null) {
+            return;
+        }
+        Typeface styled = typeface;
+        if (SdkUtils.isAtLeastAndroid9()) {
+            try {
+                styled = Typeface.create(typeface, Math.max(1, Math.min(1000, boldness)), false);
+            } catch (Exception ignored) {
+            }
+        }
+        tv.setTypeface(styled);
+        if (boldness >= 600) {
+            tv.getPaint().setFakeBoldText(true);
+        } else {
+            tv.getPaint().setFakeBoldText(false);
+        }
+        if (boldness > 400) {
+            float size = tv.getTextSize();
+            float extraStroke = ((boldness - 400) / 600f) * (size * 0.04f);
+            tv.getPaint().setStyle(Paint.Style.FILL_AND_STROKE);
+            tv.getPaint().setStrokeWidth(extraStroke);
+        } else {
+            tv.getPaint().setStyle(Paint.Style.FILL);
+            tv.getPaint().setStrokeWidth(0f);
+        }
+    }
+
+    private static BroadcastReceiver sDynamicReceiver = null;
+
+    @SuppressLint("UnspecifiedRegisterReceiverFlag")
+    public static synchronized void registerDynamicReceiver(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        if (sDynamicReceiver != null) {
+            return;
+        }
+
+        sDynamicReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context ctx, Intent intent) {
+                if (intent == null || intent.getAction() == null) return;
+                String action = intent.getAction();
+                switch (action) {
+                    case Intent.ACTION_SCREEN_ON:
+                    case Intent.ACTION_USER_PRESENT:
+                        onScreenWakeOrUnlock(ctx);
+                        break;
+                    case Intent.ACTION_SCREEN_OFF:
+                        WidgetUtils.cancelMinuteWidgetUpdate(ctx);
+                        break;
+                    case Intent.ACTION_TIME_TICK:
+                        onTimeTickInternal(ctx);
+                        break;
+                }
+            }
+        };
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
+        filter.addAction(Intent.ACTION_TIME_TICK);
+
+        if (SdkUtils.isAtLeastAndroid13()) {
+            appContext.registerReceiver(sDynamicReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        } else {
+            appContext.registerReceiver(sDynamicReceiver, filter);
+        }
+    }
+
+    public static synchronized void unregisterDynamicReceiver(@NonNull Context context) {
+        if (sDynamicReceiver != null) {
+            try {
+                context.getApplicationContext().unregisterReceiver(sDynamicReceiver);
+            } catch (Exception ignored) {
+            }
+            sDynamicReceiver = null;
+        }
+    }
+
+    public static void onScreenWakeOrUnlock(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
+        if (wm == null) return;
+        ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
+        int[] widgetIds = wm.getAppWidgetIds(provider);
+        boolean hasWidgets = widgetIds != null && widgetIds.length > 0;
+
+        if (hasCustomFont && hasWidgets) {
+            registerDynamicReceiver(appContext);
+            WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+            WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+        } else {
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+        }
+    }
+
+    private static void onTimeTickInternal(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
+        if (wm == null) return;
+        ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
+        int[] widgetIds = wm.getAppWidgetIds(provider);
+        boolean hasWidgets = widgetIds != null && widgetIds.length > 0;
+
+        if (hasCustomFont && hasWidgets) {
+            WidgetUtils.updateWidget(appContext, DigitalAppWidgetProvider.class);
+            WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+        } else {
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+        }
+    }
+
+    public void checkFontAndUpdateReceivers(@NonNull Context context) {
+        Context appContext = context.getApplicationContext();
+        SharedPreferences prefs = getDefaultSharedPreferences(appContext);
+        String fontPath = WidgetDAO.getDigitalWidgetFont(prefs);
+        boolean hasCustomFont = fontPath != null && ThemeUtils.loadFont(fontPath) != null;
+
+        AppWidgetManager wm = AppWidgetManager.getInstance(appContext);
+        if (wm == null) return;
+        ComponentName provider = new ComponentName(appContext, DigitalAppWidgetProvider.class);
+        int[] widgetIds = wm.getAppWidgetIds(provider);
+        boolean hasWidgets = widgetIds != null && widgetIds.length > 0;
+
+        if (hasCustomFont && hasWidgets) {
+            registerDynamicReceiver(appContext);
+            WidgetUtils.scheduleMinuteWidgetUpdate(appContext);
+        } else {
+            unregisterDynamicReceiver(appContext);
+            WidgetUtils.cancelMinuteWidgetUpdate(appContext);
+        }
+    }
+
+    @Override
+    public void onUpdate(@NonNull Context context, @NonNull AppWidgetManager wm, int[] widgetIds) {
+        super.onUpdate(context, wm, widgetIds);
+        checkFontAndUpdateReceivers(context);
+    }
+
+    @Override
+    protected void relayoutWidget(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId, @NonNull Bundle options) {
+        super.relayoutWidget(context, wm, widgetId, options);
+        checkFontAndUpdateReceivers(context);
+    }
+
+    @Override
+    public void onEnabled(@NonNull Context context) {
+        super.onEnabled(context);
+        checkFontAndUpdateReceivers(context);
+    }
+
+    @Override
+    public void onDisabled(@NonNull Context context) {
+        super.onDisabled(context);
+        unregisterDynamicReceiver(context);
+        WidgetUtils.cancelMinuteWidgetUpdate(context);
+    }
+
     @Keep
     public static void updateAppWidget(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId) {
         new DigitalAppWidgetProvider().relayoutWidget(context, wm, widgetId, wm.getAppWidgetOptions(widgetId));
+    }
+
+    @Keep
+    public static void updateAppWidgetSync(@NonNull Context context, @NonNull AppWidgetManager wm, int widgetId) {
+        DigitalAppWidgetProvider provider = new DigitalAppWidgetProvider();
+        provider.relayoutWidgetSync(context, wm, widgetId, wm.getAppWidgetOptions(widgetId));
+        provider.checkFontAndUpdateReceivers(context);
     }
 
 }

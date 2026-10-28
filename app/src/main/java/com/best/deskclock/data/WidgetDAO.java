@@ -12,6 +12,7 @@ import static com.best.deskclock.settings.PreferencesKeys.*;
 import android.content.SharedPreferences;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 /**
  * This class encapsulates the transfer of data between widget objects and their permanent storage
@@ -383,6 +384,39 @@ public final class WidgetDAO {
     public static int getDigitalWidgetMaxClockFontSize(@NonNull SharedPreferences prefs) {
         // Default value must match the one in res/xml/settings_customize_digital_widget.xml
         return prefs.getInt(KEY_DIGITAL_WIDGET_MAXIMUM_CLOCK_FONT_SIZE, DEFAULT_WIDGETS_FONT_SIZE);
+    }
+
+    /**
+     * @return the font boldness applied to the digital widget.
+     */
+    public static int getDigitalWidgetFontBoldness(@NonNull SharedPreferences prefs) {
+        return prefs.getInt(KEY_DIGITAL_WIDGET_FONT_BOLDNESS, DEFAULT_FONT_BOLDNESS_VALUE);
+    }
+
+    /**
+     * @return the font used on the digital widget, or null if the default font is used.
+     */
+    @Nullable
+    public static String getDigitalWidgetFont(@NonNull SharedPreferences prefs) {
+        String customFont = prefs.getString(KEY_DIGITAL_WIDGET_FONT, null);
+        if (customFont != null) {
+            return customFont;
+        }
+
+        String preshipped = prefs.getString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
+        if (preshipped != null && !DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT.equals(preshipped)) {
+            return "fonts/preshipped/" + preshipped;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return the preshipped font identifier chosen for the digital widget.
+     */
+    @NonNull
+    public static String getDigitalWidgetPreshippedFont(@NonNull SharedPreferences prefs) {
+        return prefs.getString(KEY_DIGITAL_WIDGET_PRESHIPPED_FONT, DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT);
     }
 
     // *********************

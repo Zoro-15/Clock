@@ -4,7 +4,8 @@
 -->
 
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <PreferenceCategory
         android:title="@string/style_category_title"
@@ -40,6 +41,23 @@
             android:layout="@layout/settings_preference_layout"
             android:title="@string/hide_clock_am_pm_pref"
             android:defaultValue="false"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
+        <Preference
+            android:key="key_digital_widget_font"
+            android:layout="@layout/settings_preference_layout"
+            android:title="@string/custom_font_title"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
+        <ListPreference
+            android:key="key_digital_widget_preshipped_font"
+            android:layout="@layout/settings_preference_layout"
+            android:title="@string/preshipped_font_title"
+            android:entries="@array/preshipped_font_entries"
+            android:entryValues="@array/preshipped_font_values"
+            android:defaultValue="default"
             app:iconSpaceReserved="false"
             app:singleLineTitle="false" />
 
@@ -275,6 +293,16 @@
             android:summary="@string/label_default"
             android:defaultValue="70"
             android:max="200"
+            app:iconSpaceReserved="false"
+            app:singleLineTitle="false" />
+
+        <com.best.deskclock.settings.custompreference.CustomSliderPreference
+            android:key="key_digital_widget_font_boldness"
+            android:layout="@layout/settings_preference_slider_layout"
+            android:title="@string/font_boldness_title"
+            android:summary="@string/label_default"
+            android:defaultValue="400"
+            android:max="1000"
             app:iconSpaceReserved="false"
             app:singleLineTitle="false" />
 

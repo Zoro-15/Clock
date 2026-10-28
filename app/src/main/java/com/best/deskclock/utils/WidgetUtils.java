@@ -26,6 +26,7 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.Icon;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.util.DisplayMetrics;
@@ -48,6 +49,7 @@ import com.best.deskclock.events.Events;
 import com.best.deskclock.provider.AlarmInstance;
 import com.best.deskclock.widgets.AnalogAppWidgetProvider;
 import com.best.deskclock.widgets.DigitalAppWidgetProvider;
+import com.best.deskclock.widgets.MinuteWidgetUpdateReceiver;
 import com.best.deskclock.widgets.NextAlarmAppWidgetProvider;
 import com.best.deskclock.widgets.VerticalAppWidgetProvider;
 
@@ -64,6 +66,7 @@ public class WidgetUtils {
     public static final String KEY_LAUNCHED_FROM_WIDGET = "launched_from_widget";
 
     private static final String METHOD_UPDATE_APP_WIDGET = "updateAppWidget";
+    private static final String METHOD_UPDATE_APP_WIDGET_SYNC = "updateAppWidgetSync";
     private static final String METHOD_SET_FORMAT_24 = "setFormat24Hour";
     private static final String METHOD_SET_FORMAT_12 = "setFormat12Hour";
     public static final String METHOD_SET_TIME_ZONE = "setTimeZone";
@@ -473,6 +476,83 @@ public class WidgetUtils {
     }
 
     /**
+     * Schedules a minute alarm to update widgets at the top of the next minute (:00).
+     */
+    public static void scheduleMinuteWidgetUpdate(@NonNull Context context) {
+        AppWidgetManager wm = AppWidgetManager.getInstance(context);
+        if (wm != null) {
+            ComponentName provider = new ComponentName(context, DigitalAppWidgetProvider.class);
+            int[] widgetIds = wm.getAppWidgetIds(provider);
+            if (widgetIds == null || widgetIds.length == 0) {
+                cancelMinuteWidgetUpdate(context);
+                return;
+            }
+        }
+
+        PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        if (pm != null && !pm.isInteractive()) {
+            cancelMinuteWidgetUpdate(context);
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        Calendar nextMinute = Calendar.getInstance();
+        nextMinute.setTimeInMillis(now);
+        nextMinute.add(Calendar.MINUTE, 1);
+        nextMinute.set(Calendar.SECOND, 0);
+        nextMinute.set(Calendar.MILLISECOND, 0);
+
+        long triggerAtMillis = nextMinute.getTimeInMillis();
+        if (triggerAtMillis <= now) {
+            nextMinute.add(Calendar.MINUTE, 1);
+            triggerAtMillis = nextMinute.getTimeInMillis();
+        }
+
+        Intent intent = new Intent(context, MinuteWidgetUpdateReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        AlarmManager am = getAlarmManager(context);
+        if (am != null) {
+            boolean canScheduleExact = true;
+            if (SdkUtils.isAtLeastAndroid12()) {
+                canScheduleExact = am.canScheduleExactAlarms();
+            }
+
+            if (canScheduleExact) {
+                try {
+                    am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+                    LogUtils.i("Minute widget update scheduled exact for: " + nextMinute.getTime());
+                    return;
+                } catch (SecurityException se) {
+                    LogUtils.w("Cannot schedule exact alarm: " + se.getMessage());
+                }
+            }
+
+            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent);
+            LogUtils.i("Minute widget update scheduled inexact for: " + nextMinute.getTime());
+        }
+    }
+
+    /**
+     * Cancels the scheduled minute widget update.
+     */
+    public static void cancelMinuteWidgetUpdate(@NonNull Context context) {
+        Intent intent = new Intent(context, MinuteWidgetUpdateReceiver.class);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(
+            context, 0, intent, PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+
+        if (pendingIntent != null) {
+            AlarmManager am = getAlarmManager(context);
+            if (am != null) {
+                am.cancel(pendingIntent);
+            }
+            pendingIntent.cancel();
+            LogUtils.i("Minute widget update cancelled");
+        }
+    }
+
+    /**
      * Retrieves the system AlarmManager service, which allows scheduling and managing alarms.
      *
      * @param context The Context used to access the system service.
@@ -483,14 +563,20 @@ public class WidgetUtils {
     }
 
     /**
-     * Helper method to update a widget.
+     * Helper method to update a widget asynchronously.
      * <p>Note: The widget provider class must declare a public static method named
      * {@code updateAppWidget(Context, AppWidgetManager, int)}.</p>
      */
     public static void updateWidget(@NonNull Context context, @NonNull Class<?> widgetProviderClass) {
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        if (appWidgetManager == null) {
+            return;
+        }
         ComponentName widget = new ComponentName(context, widgetProviderClass);
         int[] widgetIds = appWidgetManager.getAppWidgetIds(widget);
+        if (widgetIds == null || widgetIds.length == 0) {
+            return;
+        }
 
         for (int widgetId : widgetIds) {
             try {
@@ -499,6 +585,36 @@ public class WidgetUtils {
                     .invoke(null, context, appWidgetManager, widgetId);
             } catch (Exception e) {
                 LogUtils.e("Error updating widget " + widgetProviderClass.getSimpleName(), e);
+            }
+        }
+    }
+
+    /**
+     * Synchronously update a widget on the calling thread.
+     * Tries updateAppWidgetSync first, falling back to updateAppWidget.
+     */
+    public static void updateWidgetSync(@NonNull Context context, @NonNull Class<?> widgetProviderClass) {
+        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(context);
+        if (appWidgetManager == null) {
+            return;
+        }
+        ComponentName widget = new ComponentName(context, widgetProviderClass);
+        int[] widgetIds = appWidgetManager.getAppWidgetIds(widget);
+        if (widgetIds == null || widgetIds.length == 0) {
+            return;
+        }
+
+        for (int widgetId : widgetIds) {
+            try {
+                try {
+                    widgetProviderClass.getMethod(METHOD_UPDATE_APP_WIDGET_SYNC, Context.class, AppWidgetManager.class, int.class)
+                        .invoke(null, context, appWidgetManager, widgetId);
+                } catch (NoSuchMethodException e) {
+                    widgetProviderClass.getMethod(METHOD_UPDATE_APP_WIDGET, Context.class, AppWidgetManager.class, int.class)
+                        .invoke(null, context, appWidgetManager, widgetId);
+                }
+            } catch (Exception e) {
+                LogUtils.e("Error updating widget sync " + widgetProviderClass.getSimpleName(), e);
             }
         }
     }

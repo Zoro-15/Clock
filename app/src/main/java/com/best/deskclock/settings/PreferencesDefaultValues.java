@@ -279,6 +279,7 @@ public class PreferencesDefaultValues {
     public static final boolean DEFAULT_DIGITAL_WIDGET_DISPLAY_TOP_DATE = false;
     public static final boolean DEFAULT_DIGITAL_WIDGET_DISPLAY_NEXT_ALARM_TITLE = true;
     public static final boolean DEFAULT_DIGITAL_WIDGET_WORLD_CITIES_DISPLAYED = true;
+    public static final String DEFAULT_DIGITAL_WIDGET_PRESHIPPED_FONT = "default";
 
     // Vertical Widget
     public static final boolean DEFAULT_VERTICAL_WIDGET_DISPLAY_DATE = true;
@@ -293,5 +294,6 @@ public class PreferencesDefaultValues {
     public static final int DEFAULT_WIDGET_BACKGROUND_CORNER_RADIUS = 24;
     public static final int DEFAULT_WIDGETS_CUSTOM_COLOR = Color.WHITE;
     public static final int DEFAULT_WIDGETS_FONT_SIZE = 70;
+    public static final int DEFAULT_FONT_BOLDNESS_VALUE = 400;
     public static final boolean DEFAULT_WIDGETS_APPLY_HORIZONTAL_PADDING = true;
 }

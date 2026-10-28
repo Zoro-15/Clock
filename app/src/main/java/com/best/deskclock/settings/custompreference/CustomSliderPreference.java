@@ -51,6 +51,7 @@ public class CustomSliderPreference extends Preference {
     private static final int MIN_SHADOW_OFFSET_VALUE = 1;
     private static final int MIN_ANALOG_CLOCK_SIZE_VALUE = 1;
     private static final int MIN_FAB_SIZE_VALUE = 40;
+    private static final int MIN_FONT_BOLDNESS_VALUE = 100;
 
     // The max values below correspond to the max values defined in the preferences XML files.
     private static final int MAX_BRIGHTNESS_VALUE = 100;
@@ -62,6 +63,7 @@ public class CustomSliderPreference extends Preference {
     private static final int MAX_EXTERNAL_AUDIO_DEVICE_VOLUME = 100;
     private static final int MAX_ANALOG_CLOCK_SIZE_VALUE = 100;
     private static final int MAX_FONT_SIZE_VALUE = 200;
+    private static final int MAX_FONT_BOLDNESS_VALUE = 1000;
     private static final int MAX_FAB_SIZE_VALUE = 80;
 
     private SettingsPreferenceSliderLayoutBinding mBinding;
@@ -104,8 +106,8 @@ public class CustomSliderPreference extends Preference {
         mBinding.slider.setStepSize(1f);
         setSliderProgress(mBinding.summary);
         configureSliderButtonDrawables();
-        setupSliderButton(mBinding.sliderMinusIcon, isExternalAudioDeviceVolumePreference() ? -10 : -5, mBinding.summary);
-        setupSliderButton(mBinding.sliderPlusIcon, isExternalAudioDeviceVolumePreference() ? 10 : 5, mBinding.summary);
+        setupSliderButton(mBinding.sliderMinusIcon, isDigitalWidgetFontBoldnessPreference() ? -50 : (isExternalAudioDeviceVolumePreference() ? -10 : -5), mBinding.summary);
+        setupSliderButton(mBinding.sliderPlusIcon, isDigitalWidgetFontBoldnessPreference() ? 50 : (isExternalAudioDeviceVolumePreference() ? 10 : 5), mBinding.summary);
         updateSliderButtonStates();
         updateResetButtonStates();
 
@@ -189,6 +191,9 @@ public class CustomSliderPreference extends Preference {
             || isAlarmAnalogClockSizePreference()) {
             min = MIN_ANALOG_CLOCK_SIZE_VALUE;
             max = MAX_ANALOG_CLOCK_SIZE_VALUE;
+        } else if (isDigitalWidgetFontBoldnessPreference()) {
+            min = MIN_FONT_BOLDNESS_VALUE;
+            max = MAX_FONT_BOLDNESS_VALUE;
         } else {
             min = MIN_FONT_SIZE_VALUE;
             max = MAX_FONT_SIZE_VALUE;
@@ -396,6 +401,8 @@ public class CustomSliderPreference extends Preference {
             || isScreensaverAnalogClockSizePreference()
             || isAlarmAnalogClockSizePreference()) {
             return DEFAULT_ANALOG_CLOCK_SIZE;
+        } else if (isDigitalWidgetFontBoldnessPreference()) {
+            return DEFAULT_FONT_BOLDNESS_VALUE;
         } else {
             return DEFAULT_WIDGETS_FONT_SIZE;
         }
@@ -547,6 +554,13 @@ public class CustomSliderPreference extends Preference {
      */
     private boolean isDigitalClockFontSizePreference() {
         return getKey().equals(KEY_DIGITAL_CLOCK_FONT_SIZE);
+    }
+
+    /**
+     * @return {@code true} if the current preference is related to the digital widget font boldness. {@code false} otherwise.
+     */
+    private boolean isDigitalWidgetFontBoldnessPreference() {
+        return getKey().equals(KEY_DIGITAL_WIDGET_FONT_BOLDNESS);
     }
 
     /**

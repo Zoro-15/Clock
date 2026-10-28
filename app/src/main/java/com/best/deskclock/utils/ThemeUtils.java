@@ -55,6 +55,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.best.deskclock.DeskClockApplication;
 import com.best.deskclock.R;
 import com.best.deskclock.data.SettingsDAO;
 import com.best.deskclock.uicomponents.CustomTooltip;
@@ -154,6 +155,21 @@ public class ThemeUtils {
 
         if (fontCache.containsKey(fontPath)) {
             return fontCache.get(fontPath);
+        }
+
+        if (fontPath.startsWith("fonts/") || fontPath.startsWith("assets:")) {
+            String assetPath = fontPath.startsWith("assets:") ? fontPath.substring("assets:".length()) : fontPath;
+            try {
+                Context context = DeskClockApplication.getAppContext();
+                if (context != null) {
+                    Typeface typeface = Typeface.createFromAsset(context.getAssets(), assetPath);
+                    fontCache.put(fontPath, typeface);
+                    return typeface;
+                }
+            } catch (Exception e) {
+                LogUtils.e("Error loading asset font: " + fontPath, e);
+                return null;
+            }
         }
 
         File file = new File(fontPath);

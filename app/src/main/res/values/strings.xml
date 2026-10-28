@@ -639,6 +639,8 @@
     <string name="custom_font_title">Select a custom font</string>
     <!-- Setting title to choose or delete font. -->
     <string name="custom_font_title_variant">Change or delete the custom font</string>
+    <!-- Setting title to choose from preshipped fonts. -->
+    <string name="preshipped_font_title">Select from preshipped fonts</string>
     <!-- Dialog title to select a custom font. -->
     <string name="custom_font_dialog_title">Font</string>
     <!-- Dialog message to change the font. -->
@@ -1360,6 +1362,8 @@
     <string name="display_next_alarm_title_setting_title">Display the next alarm title</string>
     <!-- Title to set the font size of the clock in the digital widget. -->
     <string name="max_clock_font_size_title">Maximum font size of the main clock</string>
+    <!-- Title to set the font boldness of the digital widget. -->
+    <string name="font_boldness_title">Font boldness</string>
     <!-- Summary about the font size of the clock when cities are shown -->
     <string name="digital_widget_message_summary">\"Display the cities\" must be disabled to access this setting</string>
     <!-- Title to apply horizontal padding the widgets. -->
